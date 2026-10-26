@@ -1,0 +1,127 @@
+# job-fit
+
+A Claude skill that reads your CV and a job vacancy, and tells you honestly if it fits, whether there is growth, what to fix in the CV, what to ask, and what to say in the application. Built for any role, not only engineers.
+
+![Example report: a fictional frontend CV against a UK vacancy](docs/example-report.png)
+
+*An example report, rendered from [`examples/frontend/report.json`](examples/frontend/report.json). The CV is fictional.*
+
+*Independent project, not affiliated with or endorsed by Anthropic.*
+
+## In short
+
+- **Problem.** Checking a vacancy against a CV by hand is slow and easy to get wrong. The tag says Angular, but the requirement text says Pixi.js. "Middle" turns out to mean Senior duties. The role is UK-only.
+- **What it does.** It gives a verdict, a requirement-by-requirement evidence table, CV fixes, red flags, questions for the recruiter and talking points. All of it is on one styled page.
+- **What keeps it honest.** Every quote in the report is checked against the CV and the vacancy by a script, and the page isn't rendered if one is missing. A skill missing from the CV becomes a question, never a suggestion.
+- **What it won't do.** It sends nothing, writes no letter unless asked, gives no "73% match" score and adds no invented experience.
+- **How it's tested.** 72 pytest tests for the scripts, four example role families, and a manual checklist for the model's behavior.
+
+If you're reviewing this as part of my application, start with these:
+
+| File | Why it matters |
+|---|---|
+| [`SKILL.md`](SKILL.md) | The workflow, the output format and the "do not" rules |
+| [`scripts/verify_quotes.py`](scripts/verify_quotes.py) | The guard against invented evidence |
+| [`scripts/build_report.py`](scripts/build_report.py) | JSON in, quote-checked HTML out |
+| [`references/intake.md`](references/intake.md) | How questions are asked: multiple-choice only, at most 3 per vacancy |
+| [`tests/MANUAL_EVAL.md`](tests/MANUAL_EVAL.md) | How the model's behavior is checked, since it can't be unit-tested |
+
+## Quick start
+
+- **Claude (app):** zip the folder and upload it in the Skills section of settings.
+- **Claude Code:** copy the folder to `~/.claude/skills/job-fit/`.
+
+Then attach your CV and say "set up job-fit". To run the tests: `pip install pytest && pytest tests`.
+
+## How it works
+
+1. **Setup (once).** Attach your CV and say "set up job-fit". It works out your role family (engineering, data, management, design, or other). Then it asks 8 core questions (pay, contract, format, location, what you want, what to avoid, anything missing from the CV) plus 2–4 for your family. All of them are multiple-choice, so you click or answer "1b, 2a" instead of writing sentences. You can skip any. At the end you get a profile block to keep. Attach it, or keep it with your CV in a Claude Project's files, and later chats skip Setup. It is private and never committed.
+2. **One vacancy.** Paste it. It asks at most 3 questions, also multiple-choice, and only if the answer can change the verdict. Then you get:
+   - a verdict and what would change it;
+   - a table: requirement → evidence in your CV → a status you can read at a glance: ✅ match, ⚠️ partial, ❓ not in CV (maybe true, so it asks you), ❌ gap;
+   - concrete CV fixes (move up, reword, add only if you confirm);
+   - growth, red flags, money and format;
+   - questions for the recruiter that the vacancy can't answer;
+   - talking points for the application, each with its CV and vacancy source.
+3. **Several vacancies.** Paste a list. You get one summary table, the patterns (which gap blocks most of them), and which ones deserve a full analysis.
+4. **Interview prep.** Once you are invited, Prep mode builds the plan for that vacancy. You get likely questions tied to its requirements, the CV episode that answers each, honest frames for the weak spots, topics to brush up, how to answer on money, and questions to ask. It gives frames, not scripts. The answers stay yours, and every episode comes from your CV or something you confirmed.
+
+Four full examples (frontend, backend, project manager, designer), each with a fictional CV, are in `examples/`.
+
+## The report page
+
+The analysis is delivered as one styled HTML page instead of a long chat message. It has status marks, colors, light and dark themes, a mobile layout and print styles. The model writes compact JSON (`references/report-schema.md`). `scripts/build_report.py` renders it in about a second, escapes everything, and refuses to render if a quoted line is not in the CV or the vacancy. PDF is optional (`--pdf`, or print the page).
+
+Other long texts (the saved profile, company research, interview prep) go through `scripts/build_page.py`, which turns plain Markdown into the same page. The page holds CV details, so it is published privately or sent as a file.
+
+## It doesn't send anything
+
+It never submits, posts or messages. It gives you talking points, not a finished letter (a draft only if you ask, labeled "check every claim"). You read it, change it and send it. That is a design choice: the agent does the analysis, and the human takes responsibility for what goes out.
+
+## Why you can trust the output
+
+The risk with a tool like this is a confident invention: a skill you don't have, or a role you didn't hold. Two guards:
+
+- **A missing skill is a question, not a fix.** If a requirement isn't in the CV, the status is `not in CV` and the skill asks "did you actually do this?". It adds nothing on its own.
+- **Every quote is checked.** `scripts/verify_quotes.py` takes the answer and the source documents and fails if any quoted evidence isn't in the CV or the vacancy. The skill runs it before showing the answer. The expected outputs in `examples/` are tested against it.
+
+## Structure
+
+```
+SKILL.md                      workflow, output format, what not to do
+references/intake.md          setup questions, per-vacancy question rules
+references/role-families.md   scope and level signals, extra questions per role family
+references/cv-check.md        evidence table, statuses, CV fixes
+references/letter-theses.md   talking points rules
+references/batch-mode.md      several vacancies at once
+references/interview-prep.md  prep mode
+references/fit-rubric.md      blockers → requirements → seniority → domain → money
+references/growth-signals.md
+references/red-flags.md       universal; your own "avoid" list is added on top
+references/questions-bank.md
+references/report-schema.md   the JSON the model writes
+references/*.template.*       profile and keywords, filled in at Setup
+scripts/scan.py               keyword scanner (finds, doesn't judge)
+scripts/verify_quotes.py      checks every quote exists in the sources
+scripts/build_report.py       JSON -> styled HTML report (quote-checked)
+scripts/build_page.py         any Markdown -> the same styled page (profile, research)
+tests/                        pytest, plus MANUAL_EVAL.md for the model's behavior
+examples/                     four role families: CV, vacancy, expected output
+docs/                         the example report shown above
+```
+
+## Decisions and trade-offs
+
+- **No numeric score.** "73% match" looks precise and hides the reasoning. The table shows the evidence instead.
+- **The CV is the only truth.** Anything not in it is a gap or a question.
+- **Nothing role-specific is hard-coded.** The scanner has universal signals (location, schedule, contract, money, scope). Your tools and your "avoid" list come from your CV and your answers at Setup. So a backend CV isn't warned about Pixi.js, and a manager isn't asked about stacks.
+- **The scripts only do mechanical things.** The scanner finds keywords; the verifier checks quotes. Judgment ("is this senior scope?") stays with the model, because regex can't tell "Pixi.js is a plus" from "Pixi.js is the job".
+- **Talking points, not a letter.** They are easier to check and harder to send by accident, and the letter stays in your voice.
+- **English first.** The skill and its output are in English. Vacancies in Ukrainian work (quotes stay in the original language), and the scanner knows a few Ukrainian words.
+
+## Known limitations
+
+- **Built for several roles, tested mainly on one.** The role families and examples are designed to generalize, and the scripts are tested on all four examples. But I have used the skill for real only on engineering vacancies. The checklist in `tests/MANUAL_EVAL.md` is how to check it on your role, and I'd rather you tell me where it fails than trust the claim.
+- **The profile doesn't persist by itself in a chat app.** Each chat starts in a fresh sandbox, so the skill gives you the profile to keep and attach. In Claude Code, where the skill folder is yours, it is saved automatically.
+- **It is as good as the CV.** A stale CV gives a confident wrong answer.
+- **Seniority is judgment, not measurement.** It will sometimes disagree with a recruiter, and sometimes the recruiter is right.
+- **The scanner is a checklist, not a parser.** It covers English and only a handful of Ukrainian words.
+- **The quote check proves a quote exists, not that it supports the claim.** A real quote can still be used badly, so read the table yourself.
+- **It can't check where a salary came from.** Job boards sometimes estimate salaries, and those aren't from the company. The skill is told to say which is which.
+- **No large evaluation yet.** The model's behavior is checked by hand.
+
+## Privacy
+
+Your CV, `references/profile.local.md` and `references/keywords.local.json` are in `.gitignore`. Don't commit them.
+
+## Why I built it this way
+
+I've used Claude Code daily at work since spring 2025, about a year and a half, and Cursor for over two years. Day to day it covers Jira tickets, code review, refactoring and migration support. I also use Copilot, ChatGPT and Gemini.
+
+Nothing in this repo comes from an employer or a client: no code, prompts, data or internal tools. I wrote it on my own, and what follows describes general working practice.
+
+The workflow I use most turns a feature request into a plan that is ready to build. It produces a technical design document split into logical steps. The document says which files to change and what to change in them, which to create, which approach to take, and what still needs to be clarified. The design is connected through MCP, so the plan stays in sync with it. Epics and tickets are created and estimated, so there is a rough completion date. Extra tests are listed to catch regressions. The prompt carries the details the model needs to deliver the feature on time. After the tickets are created, a second pass reviews them against the technical documentation.
+
+One thing I learned: tests written by AI sometimes don't check the core logic. So the test step doesn't start with writing tests. First an analysis finds the key behaviors in the code and the parts that are easy to miss (error handling, empty strings, form validation). Then the written tests are reviewed against that list and fixed.
+
+I haven't measured how much time this saves, so I won't give a number. This repo is a small example of the same approach: one clear job, a single source of truth, explicit "do not" rules, a human who sends, and a script only where a script is the right tool.

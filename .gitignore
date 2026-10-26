@@ -1,0 +1,18 @@
+# Private: your own data, never commit
+references/profile.local.md
+references/keywords.local.json
+*.local.*
+profile.md
+cv.*
+CV.*
+*.pdf
+!examples/**
+
+# Generated reports
+report*.html
+analysis*.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

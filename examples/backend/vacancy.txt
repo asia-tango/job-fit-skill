@@ -1,0 +1,12 @@
+Senior Backend Engineer (Payments)
+
+Location: Remote within the EU only.
+
+Requirements
+- 5+ years of backend development in Go or Python
+- Experience with high-load distributed systems
+- Hands-on Kubernetes in production
+- Experience with payment systems or PCI DSS is a plus
+- Mentor mid-level engineers
+
+Salary: 5000-6500 EUR gross.

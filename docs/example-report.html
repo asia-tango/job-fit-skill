@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="generator" content="job-fit"><title>Senior Frontend Engineer (conversational UI)</title><style>
+:root{color-scheme:light;--bg:#f7f7f5;--card:#ffffff;--text:#1d1d1b;--muted:#5f5e5a;--line:#e3e2dc;
+--ok:#1a7f37;--ok-bg:#e6f4ea;--warn:#9a6700;--warn-bg:#fff4d6;--unk:#3b5bdb;--unk-bg:#e8edff;
+--bad:#c62828;--bad-bg:#fde8e8;--accent:#1d1d1b;
+--mint:#3ccfa9;--mint-bg:#e2f8f1;--mint-ink:#0d6b55;--coral:#f4694c;--coral-bg:#fff0ec}
+:root[data-jf="dark"]{color-scheme:dark;--mint:#3ccfa9;--mint-bg:#10302a;--mint-ink:#6fe3c5;--coral:#ff846b;--coral-bg:#341c17;--bg:#161615;--card:#1f1f1d;--text:#ececea;--muted:#a3a29c;--line:#34332f;--ok:#56d364;
+--ok-bg:#12261a;--warn:#e3b341;--warn-bg:#2b2410;--unk:#8fa8ff;--unk-bg:#1a2140;--bad:#ff7b72;--bad-bg:#2d1618;--accent:#ececea}
+html{color-scheme:light!important;background:var(--bg)}html[data-jf="dark"]{color-scheme:dark!important}
+*{box-sizing:border-box}
+main::before{content:"";display:block;height:6px;border-radius:6px;margin-bottom:22px;background:linear-gradient(90deg,var(--mint) 0 60%,var(--coral) 60% 100%)}
+#tt{position:fixed;top:12px;right:12px;display:inline-flex;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px;gap:2px;z-index:5}
+#tt button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:.8rem;border-radius:999px;padding:3px 12px;cursor:pointer}
+#tt button.on{background:var(--mint);color:#06372c;font-weight:600}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:900px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:1.5rem;line-height:1.25;margin:0 0 4px}
+h2{font-size:1.05rem;margin:28px 0 10px;letter-spacing:.01em;padding-left:10px;border-left:4px solid var(--coral)}
+h3{font-size:.95rem;margin:16px 0 6px;color:var(--muted)}
+.src{color:var(--mint-ink);font-size:.85rem;margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+.verdict{border-left:6px solid var(--mint)}
+.verdict.apply{border-left-color:var(--ok)}.verdict.questions{border-left-color:var(--warn)}
+.verdict.check{border-left-color:var(--unk)}.verdict.skip{border-left-color:var(--bad)}
+.vlabel{font-weight:700;font-size:1.15rem;margin:0 0 4px}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:.82rem;font-weight:600;white-space:nowrap}
+.badge.match{color:var(--ok);background:var(--ok-bg)}.badge.partial{color:var(--warn);background:var(--warn-bg)}
+.badge.unknown{color:var(--unk);background:var(--unk-bg)}.badge.gap{color:var(--bad);background:var(--bad-bg)}
+.tag{font-size:.72rem;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.note{color:var(--muted);font-size:.88rem;display:block;margin-top:4px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+q{quotes:"\201C" "\201D"}
+.ev{color:var(--muted)}
+ul{margin:6px 0 0;padding-left:1.2rem}li{margin:4px 0}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cols .card{margin:0}
+.flag{border-left:4px solid var(--bad)}
+.opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.opt{background:var(--mint-bg);color:var(--mint-ink);border:1px solid var(--mint);border-radius:8px;padding:3px 10px;font-size:.88rem}
+.kind{font-weight:600;color:var(--coral)}
+a{color:var(--mint-ink)}th{border-bottom:2px solid var(--mint)}
+.missing{outline:2px dashed var(--bad)}
+nav ul{list-style:none;padding:0}
+.cmds{display:grid;gap:10px;margin:12px 0}
+.cmd{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;text-align:left;width:100%;font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-left:5px solid var(--mint);border-radius:12px;padding:10px 14px;cursor:pointer}
+.cmd:hover{border-left-color:var(--coral)}.cmd.ok{border-left-color:var(--ok)}
+.cmd .cl{font-weight:600;grid-column:1}.cmd code{grid-column:1;color:var(--mint-ink);background:var(--mint-bg);border-radius:6px;padding:2px 8px;font-size:.88rem;justify-self:start;white-space:normal}
+.cmd .cp{grid-column:2;grid-row:1 / span 2;font-size:.78rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+@media (max-width:680px){
+ .cols{grid-template-columns:1fr}
+ table,thead,tbody,tr,td{display:block}thead{display:none}
+ tr{border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:6px 4px}
+ td{border:0;padding:6px 10px}td::before{content:attr(data-l);display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+}
+@media print{#tt,.cp{display:none}body{background:#fff;color:#000}main{max-width:none;padding:0}.card{break-inside:avoid;border-color:#bbb}tr{break-inside:avoid}
+ .verdict{border-left-width:6px}}
+</style></head><body><main><h1>Senior Frontend Engineer (conversational UI)</h1>
+<p class="src">Profile: example (fictional CV)</p>
+<section id="v1">
+<div class="card verdict check"><p class="vlabel">❓ Needs a check first</p><p style="margin:0">The vacancy is UK-located and says nothing about work authorization. If it can&#x27;t be done from outside the UK, stop here.</p></div>
+<h3>What would change the verdict</h3><ul><li>Written confirmation that the role can be done remotely from the candidate&#x27;s country, as a contractor.</li></ul>
+<h2>Requirements vs CV</h2><div class="card"><table><thead><tr><th>Requirement</th><th>Evidence</th><th>Status</th></tr></thead><tbody>
+<tr><td data-l="Requirement"><q>8+ years of professional software engineering experience</q></td><td data-l="Evidence"><q class="ev">Frontend engineer, 6 years, mostly Angular and TypeScript</q></td><td data-l="Status"><span class="badge gap">❌ Gap</span><span class="note">6 vs 8+, by the CV dates</span></td></tr>
+<tr><td data-l="Requirement"><q>Deep proficiency in TypeScript and React or Angular</q></td><td data-l="Evidence"><q class="ev">Angular, TypeScript, RxJS, NgRx, AG Grid, Jasmine, Karma, Git</q></td><td data-l="Status"><span class="badge match">✅ Match</span><span class="note">Angular side</span></td></tr>
+<tr><td data-l="Requirement"><q>Experience building real-time, asynchronous, event-driven user experiences</q></td><td data-l="Evidence"><q class="ev">Added real-time updates over WebSocket</q></td><td data-l="Status"><span class="badge match">✅ Match</span></td></tr>
+<tr><td data-l="Requirement"><q>Mentor and coach engineers</q></td><td data-l="Evidence"><q class="ev">Reviewed code and mentored two junior developers</q></td><td data-l="Status"><span class="badge partial">⚠️ Partial</span><span class="note">two juniors, no lead role</span></td></tr>
+<tr><td data-l="Requirement"><q>lead complex initiatives</q></td><td data-l="Evidence"><span class="ev">—</span></td><td data-l="Status"><span class="badge unknown">❓ Not in CV</span><span class="note">Did you lead any initiative end to end?</span></td></tr>
+</tbody></table></div>
+<h2>Fix in the CV</h2><div class="card"><ul><li><span class="kind">Move up.</span> Put the real-time WebSocket line first in the Acme Analytics bullets. It is the closest match to the core of this vacancy.</li><li><span class="kind">Add, only if true.</span> If you led a migration or a design decision, say so with its scope and your role.</li></ul></div>
+<h2>Growth</h2><div class="cols">
+<div class="card"><h3 style="margin-top:0">New for you</h3><ul><li>Architecture influence, standards and mentoring: a step up from the CV&#x27;s scope<span class="tag">stated</span></li><li>Streaming and typing states in a conversational UI are a new problem on familiar tools<span class="tag">guess</span></li></ul></div>
+<div class="card"><h3 style="margin-top:0">Same as now</h3><ul><li>Component building, state, performance</li></ul></div>
+<div class="card"><h3 style="margin-top:0">Can’t tell</h3><ul><li>Who decides architecture today</li></ul></div>
+</div>
+<h2>Red flags</h2>
+<div class="card flag"><q>Primarily remote, occasional office visits.</q><span class="note">UK location; the vacancy is silent on work authorization.</span></div>
+<div class="card flag"><q>Fast-paced environment, we promote from within</q><span class="note">Culture words with no process described.</span></div>
+<h2>Money and format</h2><div class="card">Not stated. Contract type for a non-UK contractor is not stated either.</div>
+<h2>Questions to ask</h2><div class="card">
+<h3 style="margin-top:0">Role</h3><ul><li>Can this be done from outside the UK, and as what: employee or contractor?<span class="note">Decides if it is possible at all.</span></li><li>Is 8+ years a hard requirement or a guide?<span class="note">A stretch or a miss.</span></li></ul>
+<h3 style="margin-top:0">Growth</h3><ul><li>Who owns frontend architecture decisions today?<span class="note">What would be mine to decide.</span></li></ul>
+<h3 style="margin-top:0">Money</h3><ul><li>What is the salary range, gross or net?<span class="note">Not stated.</span></li></ul>
+</div>
+<h2>Talking points for the application</h2><div class="card"><ol style="padding-left:1.2rem;margin:0">
+<li style="margin:10px 0"><strong>Start with real-time work.</strong><span class="note">CV: <q>Added real-time updates over WebSocket</q><br>Vacancy: <q>Experience building real-time, asynchronous, event-driven user experiences</q></span></li>
+<li style="margin:10px 0"><strong>Mention mentoring as it was: two juniors, through review.</strong><span class="note">CV: <q>Reviewed code and mentored two junior developers</q><br>Vacancy: <q>Mentor and coach engineers</q></span></li>
+<li style="margin:10px 0"><strong>Say the gap plainly: six years against 8+, and point to the scope instead.</strong><span class="note">CV: <q>Frontend engineer, 6 years, mostly Angular and TypeScript</q><br>Vacancy: <q>8+ years of professional software engineering experience</q></span></li>
+</ol></div>
+</section>
+<h2>Questions that decide this</h2>
+<div class="card"><strong>Did you lead any initiative end to end?</strong><div class="opts"><span class="opt">Yes, I led one</span><span class="opt">I contributed to one</span><span class="opt">No</span></div><span class="note">Affects: Whether &#x27;lead complex initiatives&#x27; is a match or a gap</span></div>
+<h2>What next</h2><div class="cmds"><button type="button" class="cmd" data-cmd="I got an invite for this vacancy. Prepare me."><span class="cl">Prepare for the interview</span><code>I got an invite for this vacancy. Prepare me.</code><span class="cp">Copy</span></button><button type="button" class="cmd" data-cmd="Prepare me for the weak spots only."><span class="cl">Weak spots only</span><code>Prepare me for the weak spots only.</code><span class="cp">Copy</span></button><button type="button" class="cmd" data-cmd="Analyze this vacancy against my CV: &lt;paste the text&gt;"><span class="cl">Another vacancy</span><code>Analyze this vacancy against my CV: &lt;paste the text&gt;</code><span class="cp">Copy</span></button></div></main><div id="tt" role="group" aria-label="Theme"><button type="button" data-t="light" class="on">Light</button><button type="button" data-t="dark">Dark</button></div><script>document.getElementById('tt').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;document.documentElement.setAttribute('data-jf',b.dataset.t);this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})});</script><script>document.addEventListener('click',function(e){var b=e.target.closest('[data-cmd]');if(!b)return;var t=b.getAttribute('data-cmd'),s=b.querySelector('.cp');function done(){b.classList.add('ok');if(s)s.textContent='Copied';setTimeout(function(){b.classList.remove('ok');if(s)s.textContent='Copy'},1500)}function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove();done()}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else{fb()}});</script></body></html>

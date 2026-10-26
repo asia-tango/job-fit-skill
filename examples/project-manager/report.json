@@ -1,0 +1,142 @@
+{
+ "profile_source": "example (fictional CV)",
+ "vacancies": [
+  {
+   "title": "Senior Project Manager (Fintech)",
+   "verdict": {
+    "mark": "questions",
+    "text": "The experience matches, but PMP is a real gap and the office days need checking."
+   },
+   "would_change": [
+    "If PMP is a hard filter, skip until the certificate exists. If it is a preference, apply."
+   ],
+   "requirements": [
+    {
+     "requirement": "7+ years of project or program management experience",
+     "evidence": "Project manager, 8 years, software delivery for B2B clients",
+     "status": "match"
+    },
+    {
+     "requirement": "Experience managing budgets above 300k USD",
+     "evidence": "Owned budgets up to 400k USD",
+     "status": "match"
+    },
+    {
+     "requirement": "PMP certification required",
+     "evidence": "Certified Scrum Master, 2019",
+     "status": "gap",
+     "note": "A different certificate; editing the CV won't fix it"
+    },
+    {
+     "requirement": "Experience in regulated industries such as banking or insurance",
+     "evidence": null,
+     "status": "unknown",
+     "note": "Clients are B2B, the industries are not named"
+    },
+    {
+     "requirement": "Own the roadmap for a team of ten",
+     "evidence": "Managed delivery of 12 projects, team sizes from 4 to 15",
+     "status": "partial",
+     "note": "Team size yes; roadmap ownership isn't stated"
+    }
+   ],
+   "cv_fixes": [
+    {
+     "kind": "Add, only if true",
+     "text": "Name the industries of the enterprise clients if any were regulated."
+    },
+    {
+     "kind": "Move up",
+     "text": "Put the 400k USD budget line higher; it answers a stated requirement with a number."
+    }
+   ],
+   "growth": {
+    "new": [
+     {
+      "text": "Roadmap ownership and a bigger team than the CV shows",
+      "tag": "stated"
+     },
+     {
+      "text": "A regulated domain adds compliance and reporting skills",
+      "tag": "guess"
+     }
+    ],
+    "same": [
+     "Delivery management, budgets, stakeholder reporting"
+    ],
+    "unknown": [
+     "Who the manager reports to and what they can decide without approval"
+    ]
+   },
+   "red_flags": [
+    {
+     "quote": "PMP certification required",
+     "text": "A real gap, not a keyword fix."
+    },
+    {
+     "quote": "Hybrid: 2 days per week in the Kyiv office.",
+     "text": "Check this if the candidate is not in Kyiv."
+    }
+   ],
+   "money": "4000-5000 USD gross is stated. Hybrid in Kyiv; the CV doesn't say where the candidate lives.",
+   "questions": [
+    {
+     "group": "Role",
+     "question": "Is PMP mandatory, or would a plan to get it work?",
+     "why": "Decides if it is a real blocker."
+    },
+    {
+     "group": "Role",
+     "question": "What can the manager decide without approval, and who signs off the budget?",
+     "why": "Decision rights."
+    },
+    {
+     "group": "Team",
+     "question": "Why is this seat open, and what is the state of the team of ten?",
+     "why": "New, shrinking or growing."
+    }
+   ],
+   "talking_points": [
+    {
+     "point": "Lead with the budget.",
+     "cv": "Owned budgets up to 400k USD",
+     "vacancy": "Experience managing budgets above 300k USD"
+    },
+    {
+     "point": "Give one delivery result.",
+     "cv": "Cut average release delay from 3 weeks to 1 week by introducing weekly risk reviews"
+    },
+    {
+     "point": "State the years.",
+     "cv": "Project manager, 8 years, software delivery for B2B clients",
+     "vacancy": "7+ years of project or program management experience"
+    }
+   ]
+  }
+ ],
+ "decide": [
+  {
+   "question": "Is PMP a hard filter at this company?",
+   "options": [
+    "Yes",
+    "No, a plan is enough",
+    "Not sure"
+   ],
+   "affects": "Skip or apply"
+  }
+ ],
+ "next_steps": [
+  {
+   "label": "Prepare for the interview",
+   "command": "I got an invite for this vacancy. Prepare me."
+  },
+  {
+   "label": "Weak spots only",
+   "command": "Prepare me for the weak spots only."
+  },
+  {
+   "label": "Another vacancy",
+   "command": "Analyze this vacancy against my CV: <paste the text>"
+  }
+ ]
+}

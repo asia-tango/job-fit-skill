@@ -1,0 +1,140 @@
+{
+ "profile_source": "example (fictional CV)",
+ "vacancies": [
+  {
+   "title": "Senior Backend Engineer (Payments)",
+   "verdict": {
+    "mark": "check",
+    "text": "The vacancy is 'EU only' and the CV doesn't say where the candidate can work."
+   },
+   "would_change": [
+    "Confirmation that the role can be done as a contractor from the candidate's country, or a right to work in the EU."
+   ],
+   "requirements": [
+    {
+     "requirement": "5+ years of backend development in Go or Python",
+     "evidence": "Backend engineer, 7 years, mostly Python and PostgreSQL",
+     "status": "match"
+    },
+    {
+     "requirement": "Experience with high-load distributed systems",
+     "evidence": "Designed REST APIs in Python (FastAPI) serving 2M requests per day",
+     "status": "partial",
+     "note": "Load yes; 'distributed' is shown only by Kafka consumers"
+    },
+    {
+     "requirement": "Hands-on Kubernetes in production",
+     "evidence": "Python, FastAPI, PostgreSQL, Kafka, Docker, AWS (EC2, RDS), Git",
+     "status": "unknown",
+     "note": "Docker is listed, Kubernetes is not"
+    },
+    {
+     "requirement": "Mentor mid-level engineers",
+     "evidence": null,
+     "status": "unknown",
+     "note": "The CV shows on-call leadership, not mentoring"
+    },
+    {
+     "requirement": "Experience with payment systems or PCI DSS is a plus",
+     "evidence": null,
+     "status": "gap",
+     "note": "Nice to have"
+    }
+   ],
+   "cv_fixes": [
+    {
+     "kind": "Move up",
+     "text": "Put the 2M requests per day API line first. It answers the main requirement."
+    },
+    {
+     "kind": "Add, only if true",
+     "text": "If you used Kubernetes, even through a managed service, name it and what you did with it."
+    }
+   ],
+   "growth": {
+    "new": [
+     {
+      "text": "Payments domain and mentoring mid-level engineers",
+      "tag": "stated"
+     },
+     {
+      "text": "Payments adds reliability and compliance work the CV doesn't show yet",
+      "tag": "guess"
+     }
+    ],
+    "same": [
+     "Python APIs, PostgreSQL, Kafka"
+    ],
+    "unknown": [
+     "Who owns on-call and incident response"
+    ]
+   },
+   "red_flags": [
+    {
+     "quote": "Remote within the EU only.",
+     "text": "Location restriction; check authorization to work."
+    }
+   ],
+   "money": "5000-6500 EUR gross is stated by the company. Contract type for a non-EU candidate is not stated.",
+   "questions": [
+    {
+     "group": "Role",
+     "question": "Can this be done as a contractor from outside the EU?",
+     "why": "Decides if it is possible at all."
+    },
+    {
+     "group": "Process",
+     "question": "How is on-call organized and how often are pages?",
+     "why": "The CV shows on-call leadership; this is the load."
+    },
+    {
+     "group": "Role",
+     "question": "How much of the work is Kubernetes?",
+     "why": "A real gap or a small share."
+    }
+   ],
+   "talking_points": [
+    {
+     "point": "Lead with scale.",
+     "cv": "Designed REST APIs in Python (FastAPI) serving 2M requests per day",
+     "vacancy": "Experience with high-load distributed systems"
+    },
+    {
+     "point": "State years and language plainly.",
+     "cv": "Backend engineer, 7 years, mostly Python and PostgreSQL",
+     "vacancy": "5+ years of backend development in Go or Python"
+    },
+    {
+     "point": "Give one reliability example.",
+     "cv": "Reduced slow query time by 60% after adding indexes and rewriting reports",
+     "vacancy": "Experience with high-load distributed systems"
+    }
+   ]
+  }
+ ],
+ "decide": [
+  {
+   "question": "Kubernetes in production?",
+   "options": [
+    "Used it in real work",
+    "Only learned it or a small project",
+    "Never used it"
+   ],
+   "affects": "Gap or partial for the hands-on Kubernetes requirement"
+  }
+ ],
+ "next_steps": [
+  {
+   "label": "Prepare for the interview",
+   "command": "I got an invite for this vacancy. Prepare me."
+  },
+  {
+   "label": "Weak spots only",
+   "command": "Prepare me for the weak spots only."
+  },
+  {
+   "label": "Another vacancy",
+   "command": "Analyze this vacancy against my CV: <paste the text>"
+  }
+ ]
+}

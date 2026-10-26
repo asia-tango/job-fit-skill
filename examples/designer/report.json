@@ -1,0 +1,135 @@
+{
+ "profile_source": "example (fictional CV)",
+ "vacancies": [
+  {
+   "title": "Senior Product Designer (part-time)",
+   "verdict": {
+    "mark": "questions",
+    "text": "The core matches; the unknowns are the portfolio link, A/B testing and the pay."
+   },
+   "would_change": [
+    "If the pay for 20 hours a week is below the saved minimum, skip.",
+    "If the portfolio isn't shareable, the application is weak whatever the CV says."
+   ],
+   "requirements": [
+    {
+     "requirement": "5+ years of product design experience",
+     "evidence": "Product designer, 5 years, B2B SaaS and mobile apps",
+     "status": "match",
+     "note": "Exactly at the minimum"
+    },
+    {
+     "requirement": "Strong portfolio of shipped B2B products",
+     "evidence": null,
+     "status": "unknown",
+     "note": "No portfolio link in the CV"
+    },
+    {
+     "requirement": "Experience building and scaling design systems",
+     "evidence": "Built and maintained a design system in Figma with 120 components",
+     "status": "match"
+    },
+    {
+     "requirement": "Experience with quantitative research and A/B testing",
+     "evidence": "Redesigned the onboarding flow, increasing activation from 31% to 44%",
+     "status": "partial",
+     "note": "A measured result, but no mention of how it was tested"
+    },
+    {
+     "requirement": "Mentor junior designers",
+     "evidence": null,
+     "status": "unknown"
+    }
+   ],
+   "cv_fixes": [
+    {
+     "kind": "Add, only if true",
+     "text": "Add the portfolio link at the top; it is usually the first thing opened."
+    },
+    {
+     "kind": "Reword",
+     "text": "If the activation lift came from an A/B test, say so in the same line."
+    }
+   ],
+   "growth": {
+    "new": [
+     {
+      "text": "Mentoring juniors and scaling design systems",
+      "tag": "stated"
+     }
+    ],
+    "same": [
+     "Design systems, onboarding and usability work"
+    ],
+    "unknown": [
+     "Who sets product direction and whether designers talk to users"
+    ]
+   },
+   "red_flags": [
+    {
+     "quote": "Contract, 20 hours per week, remote.",
+     "text": "Pay is not stated; the hours cap may stretch in practice."
+    }
+   ],
+   "money": "Contract, 20 hours per week, remote. Pay not stated.",
+   "questions": [
+    {
+     "group": "Money",
+     "question": "What is the pay for 20 hours a week, gross or net?",
+     "why": "Not stated."
+    },
+    {
+     "group": "Stability",
+     "question": "Is the contract renewed, and for how long?",
+     "why": "Contract length."
+    },
+    {
+     "group": "Scope",
+     "question": "Do designers have direct access to users, and who decides what gets built?",
+     "why": "Where the direction comes from."
+    }
+   ],
+   "talking_points": [
+    {
+     "point": "Lead with the design system.",
+     "cv": "Built and maintained a design system in Figma with 120 components",
+     "vacancy": "Experience building and scaling design systems"
+    },
+    {
+     "point": "Show a measured result.",
+     "cv": "Redesigned the onboarding flow, increasing activation from 31% to 44%"
+    },
+    {
+     "point": "Say what the research was and nothing more.",
+     "cv": "Ran 20+ moderated usability sessions",
+     "vacancy": "Experience with quantitative research and A/B testing"
+    }
+   ]
+  }
+ ],
+ "decide": [
+  {
+   "question": "Can you share a portfolio of shipped B2B products?",
+   "options": [
+    "Yes, with a link",
+    "Partly",
+    "No"
+   ],
+   "affects": "Whether the portfolio requirement is met"
+  }
+ ],
+ "next_steps": [
+  {
+   "label": "Prepare for the interview",
+   "command": "I got an invite for this vacancy. Prepare me."
+  },
+  {
+   "label": "Weak spots only",
+   "command": "Prepare me for the weak spots only."
+  },
+  {
+   "label": "Another vacancy",
+   "command": "Analyze this vacancy against my CV: <paste the text>"
+  }
+ ]
+}

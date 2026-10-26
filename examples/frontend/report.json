@@ -1,0 +1,149 @@
+{
+ "profile_source": "example (fictional CV)",
+ "vacancies": [
+  {
+   "title": "Senior Frontend Engineer (conversational UI)",
+   "verdict": {
+    "mark": "check",
+    "text": "The vacancy is UK-located and says nothing about work authorization. If it can't be done from outside the UK, stop here."
+   },
+   "would_change": [
+    "Written confirmation that the role can be done remotely from the candidate's country, as a contractor."
+   ],
+   "requirements": [
+    {
+     "requirement": "8+ years of professional software engineering experience",
+     "evidence": "Frontend engineer, 6 years, mostly Angular and TypeScript",
+     "status": "gap",
+     "note": "6 vs 8+, by the CV dates"
+    },
+    {
+     "requirement": "Deep proficiency in TypeScript and React or Angular",
+     "evidence": "Angular, TypeScript, RxJS, NgRx, AG Grid, Jasmine, Karma, Git",
+     "status": "match",
+     "note": "Angular side"
+    },
+    {
+     "requirement": "Experience building real-time, asynchronous, event-driven user experiences",
+     "evidence": "Added real-time updates over WebSocket",
+     "status": "match"
+    },
+    {
+     "requirement": "Mentor and coach engineers",
+     "evidence": "Reviewed code and mentored two junior developers",
+     "status": "partial",
+     "note": "two juniors, no lead role"
+    },
+    {
+     "requirement": "lead complex initiatives",
+     "evidence": null,
+     "status": "unknown",
+     "note": "Did you lead any initiative end to end?"
+    }
+   ],
+   "cv_fixes": [
+    {
+     "kind": "Move up",
+     "text": "Put the real-time WebSocket line first in the Acme Analytics bullets. It is the closest match to the core of this vacancy."
+    },
+    {
+     "kind": "Add, only if true",
+     "text": "If you led a migration or a design decision, say so with its scope and your role."
+    }
+   ],
+   "growth": {
+    "new": [
+     {
+      "text": "Architecture influence, standards and mentoring: a step up from the CV's scope",
+      "tag": "stated"
+     },
+     {
+      "text": "Streaming and typing states in a conversational UI are a new problem on familiar tools",
+      "tag": "guess"
+     }
+    ],
+    "same": [
+     "Component building, state, performance"
+    ],
+    "unknown": [
+     "Who decides architecture today"
+    ]
+   },
+   "red_flags": [
+    {
+     "quote": "Primarily remote, occasional office visits.",
+     "text": "UK location; the vacancy is silent on work authorization."
+    },
+    {
+     "quote": "Fast-paced environment, we promote from within",
+     "text": "Culture words with no process described."
+    }
+   ],
+   "money": "Not stated. Contract type for a non-UK contractor is not stated either.",
+   "questions": [
+    {
+     "group": "Role",
+     "question": "Can this be done from outside the UK, and as what: employee or contractor?",
+     "why": "Decides if it is possible at all."
+    },
+    {
+     "group": "Role",
+     "question": "Is 8+ years a hard requirement or a guide?",
+     "why": "A stretch or a miss."
+    },
+    {
+     "group": "Growth",
+     "question": "Who owns frontend architecture decisions today?",
+     "why": "What would be mine to decide."
+    },
+    {
+     "group": "Money",
+     "question": "What is the salary range, gross or net?",
+     "why": "Not stated."
+    }
+   ],
+   "talking_points": [
+    {
+     "point": "Start with real-time work.",
+     "cv": "Added real-time updates over WebSocket",
+     "vacancy": "Experience building real-time, asynchronous, event-driven user experiences"
+    },
+    {
+     "point": "Mention mentoring as it was: two juniors, through review.",
+     "cv": "Reviewed code and mentored two junior developers",
+     "vacancy": "Mentor and coach engineers"
+    },
+    {
+     "point": "Say the gap plainly: six years against 8+, and point to the scope instead.",
+     "cv": "Frontend engineer, 6 years, mostly Angular and TypeScript",
+     "vacancy": "8+ years of professional software engineering experience"
+    }
+   ]
+  }
+ ],
+ "decide": [
+  {
+   "question": "Did you lead any initiative end to end?",
+   "options": [
+    "Yes, I led one",
+    "I contributed to one",
+    "No"
+   ],
+   "affects": "Whether 'lead complex initiatives' is a match or a gap"
+  }
+ ],
+ "next_steps": [
+  {
+   "label": "Prepare for the interview",
+   "command": "I got an invite for this vacancy. Prepare me."
+  },
+  {
+   "label": "Weak spots only",
+   "command": "Prepare me for the weak spots only."
+  },
+  {
+   "label": "Another vacancy",
+   "command": "Analyze this vacancy against my CV: <paste the text>"
+  }
+ ]
+}

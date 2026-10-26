@@ -1,0 +1,15 @@
+Senior Frontend Engineer (conversational UI)
+
+Location: United Kingdom. Primarily remote, occasional office visits.
+
+About the role
+You will solve frontend problems involving real-time conversations and streaming responses.
+As a senior technical contributor you will influence frontend architecture, lead complex initiatives
+from design through production, and help establish engineering standards.
+
+Requirements
+- 8+ years of professional software engineering experience
+- Deep proficiency in TypeScript and React or Angular
+- Experience building real-time, asynchronous, event-driven user experiences
+- Mentor and coach engineers
+- Fast-paced environment, we promote from within
