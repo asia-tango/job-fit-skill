@@ -119,7 +119,9 @@ not in chat.
    In the report JSON this is `next_steps: [{label, command}]`; in Markdown, lines `[[cmd: Label | text]]`.
    The buttons only copy text. The page sends nothing.
 6. Prep mode output and anything else long goes the same way: the saved profile, company research, interview prep, a batch write-up.
-   Write it as Markdown, then `python scripts/build_page.py text.md page.html` (same look, same delivery as step 3).
+   Write it as Markdown, then `python scripts/build_page.py text.md page.html --source <cv.txt> --source <vacancy.txt>`
+   (same look, same delivery as step 3). Like the report, it refuses to write a page whose quotes are not in the
+   sources; fix the quote, don't use `--force`. A page that quotes nothing (the profile) still builds.
    Short answers (a sentence or two, a quiz question) stay in chat. Rule of thumb: more than about 15 lines → page.
    The profile is still also given as a plain `profile.md` block or file, because that is what the user attaches next time.
 7. PDF only on request: add `--pdf report.pdf` (needs Playwright), or tell the user to print the page.

@@ -1,7 +1,8 @@
 # Interview prep (Prep mode)
 
-Used when the user is invited to an interview for one vacancy. Output: Markdown, rendered with
-`scripts/build_page.py`, quotes checked with `scripts/verify_quotes.py`. It builds on the CV and the vacancy only.
+Used when the user is invited to an interview for one vacancy. Output: Markdown, rendered and quote-checked with
+`python scripts/build_page.py prep.md prep.html --source <cv.txt> --source <vacancy.txt>`. If a quote is not in
+the CV or the vacancy, no page is written: fix the quote, don't use `--force`. It builds on the CV and the vacancy only.
 
 ## Rules
 

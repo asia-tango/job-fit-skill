@@ -2,14 +2,19 @@
 """Render any long Markdown text (profile, company research, interview prep) as the same styled HTML page.
 
 Usage:
-  python build_page.py input.md output.html [--title "Title"] [--cards]
---cards: menu layout (hero banner, sections as cards in two columns)
+  python build_page.py input.md output.html [--title "Title"] [--cards] [--source doc.txt ...] [--force]
+--cards   menu layout (hero banner, sections as cards in two columns). The menu quotes nothing, so it
+          needs no --source.
+--source  a document the page's quotes must come from (CV, vacancy). Repeat it. Every quote (see
+          verify_quotes.py) must be in one of them, or no page is written. A page with no quotes builds.
+          Without any --source the quotes are NOT checked and a warning is printed.
+--force   write the page even if some quotes were not found.
 
 Supported Markdown: # ## ### headings, paragraphs, - and 1. lists, > quotes, tables, ---, **bold**, *italic*,
 `code`, [text](https://link), and copy buttons: a line `[[cmd: Label | text to copy]]`
 (consecutive lines form one group). Everything is HTML-escaped first; only http(s) links are kept.
 The first `# Heading` becomes the page title. The look matches build_report.py (light default, dark toggle, print).
-Exit code: 0 ok, 2 usage.
+Exit code: 0 ok, 1 quotes not found, 2 usage.
 """
 import os
 import re
@@ -17,6 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_report import CSS, esc, THEME_BUTTON, COPY_JS, cmd_buttons  # noqa: E402
+from verify_quotes import missing_quotes  # noqa: E402
 
 EXTRA_CSS = """
 .page p{margin:8px 0}.page blockquote{margin:10px 0;padding:6px 14px;border-left:4px solid var(--mint);color:var(--muted)}
@@ -143,12 +149,19 @@ def render(md, title=None, cards=False):
 
 def main(argv):
     args, title, pos, i, cards = argv[1:], None, [], 0, False
+    sources, force = [], False
     while i < len(args):
         if args[i] == "--cards":
             cards = True
             i += 1
+        elif args[i] == "--force":
+            force = True
+            i += 1
         elif args[i] == "--title":
             title = args[i + 1]
+            i += 2
+        elif args[i] == "--source":
+            sources.append(args[i + 1])
             i += 2
         else:
             pos.append(args[i])
@@ -158,6 +171,20 @@ def main(argv):
         return 2
     with open(pos[0], encoding="utf-8") as f:
         md = f.read()
+    if sources:
+        texts = []
+        for s in sources:
+            with open(s, encoding="utf-8") as f:
+                texts.append(f.read())
+        missing = missing_quotes(md, texts)
+        if missing:
+            print(f"{len(missing)} quote(s) not found in the sources:")
+            for q in missing:
+                print(f'  - "{q}"')
+            if not force:
+                return 1
+    elif not cards:
+        print("warning: no --source given, quotes were NOT checked")
     with open(pos[1], "w", encoding="utf-8") as f:
         f.write(render(md, title, cards))
     print(f"wrote {pos[1]}")

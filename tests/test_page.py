@@ -43,6 +43,24 @@ def test_cli(tmp_path):
                           capture_output=True).returncode == 2
 
 
+def test_page_without_quotes_builds_with_sources(tmp_path):
+    # The "no quotes" exit 3 belongs to the verify_quotes.py CLI only: a profile, menu or research
+    # page that quotes nothing is a normal page.
+    d = os.path.join(ROOT, "examples", "frontend")
+    script = os.path.join(ROOT, "scripts", "build_page.py")
+    for name, md in (("profile", os.path.join(ROOT, "examples", "profile.example.md")),
+                     ("menu", os.path.join(ROOT, "references", "menu.md"))):
+        out = tmp_path / f"{name}.html"
+        r = subprocess.run([sys.executable, script, md, str(out),
+                            "--source", os.path.join(d, "cv.md"), "--source", os.path.join(d, "vacancy.txt")],
+                           capture_output=True, text=True)
+        assert r.returncode == 0 and out.exists(), (name, r.stdout)
+    out = tmp_path / "menu-cards.html"
+    r = subprocess.run([sys.executable, script, os.path.join(ROOT, "references", "menu.md"), str(out), "--cards"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0 and out.exists() and "warning" not in r.stdout
+
+
 def test_prep_example_quotes_exist_and_render():
     import verify_quotes as vq
     d = os.path.join(ROOT, "examples", "frontend")
