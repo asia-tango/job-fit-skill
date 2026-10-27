@@ -5,6 +5,7 @@ Write the JSON directly; do not write the analysis twice (once in chat, once in 
 
 ```json
 {
+  "lang": "optional: en (default) or uk – the language of headings and labels",
   "profile_source": "attached profile",
   "title": "optional, defaults to the vacancy title",
   "summary": {
@@ -48,6 +49,8 @@ Write the JSON directly; do not write the analysis twice (once in chat, once in 
   pasted as CV evidence fails.
 - `confirmed: true` means the user confirmed it in chat. Then `evidence` / `cv` is free text, is shown with a
   `confirmed by you` tag, and is not quote-checked. A `match` must still have evidence.
+- `lang` sets the page's own words (headings, status and verdict labels, "Profile:"): `en` or `uk`. Your text
+  fields are written in that language too; quotes stay in the original. An unknown `lang` falls back to English.
 - `status` is ✅ `match`, ⚠️ `partial`, ❓ `unknown` (not in the CV, ask), ❌ `gap`. Marks are added by the script.
 - Growth items need `stated` or `guess`.
 - `next_steps` render as copy buttons under "What next". Always include two or three.

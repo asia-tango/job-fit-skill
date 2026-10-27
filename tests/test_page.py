@@ -61,6 +61,17 @@ def test_page_without_quotes_builds_with_sources(tmp_path):
     assert r.returncode == 0 and out.exists() and "warning" not in r.stdout
 
 
+def test_page_fixed_strings_follow_lang():
+    import build_report as br
+    uk = br.LABELS["uk"]
+    page = bp.render("# T\n\n[[cmd: A | b]]", lang="uk")
+    assert '<html lang="uk">' in page
+    for key in ("light", "dark", "copy", "copied"):
+        assert uk[key] in page, key
+    assert ">Light<" not in page and ">Copy<" not in page
+    assert '<html lang="en">' in bp.render("# T")
+
+
 def test_prep_example_quotes_exist_and_render():
     import verify_quotes as vq
     d = os.path.join(ROOT, "examples", "frontend")

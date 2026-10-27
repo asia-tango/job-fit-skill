@@ -3,6 +3,8 @@
 
 Usage:
   python build_page.py input.md output.html [--title "Title"] [--cards] [--source doc.txt ...] [--force]
+                       [--lang uk]
+--lang    language of the page's fixed strings (theme switch, copy buttons): en (default) or uk.
 --cards   menu layout (hero banner, sections as cards in two columns). The menu quotes nothing, so it
           needs no --source.
 --source  a document the page's quotes must come from (CV, vacancy). Repeat it. Every quote (see
@@ -21,7 +23,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build_report import CSS, esc, THEME_BUTTON, COPY_JS, cmd_buttons  # noqa: E402
+from build_report import CSS, esc, cmd_buttons, copy_js, labels, theme_button, warn_lang  # noqa: E402
 from verify_quotes import missing_quotes  # noqa: E402
 
 EXTRA_CSS = """
@@ -57,7 +59,7 @@ def split_row(line):
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
-def convert(md):
+def convert(md, L=None):
     lines = md.splitlines()
     out, title, i = [], None, 0
     while i < len(lines):
@@ -80,7 +82,7 @@ def convert(md):
                 m = CMD_RE.match(lines[i].strip())
                 items.append((m.group(1).strip(), m.group(2).strip()))
                 i += 1
-            out.append(cmd_buttons(items))
+            out.append(cmd_buttons(items, L))
         elif re.fullmatch(r"-{3,}|\*{3,}", s):
             out.append("<hr>")
             i += 1
@@ -135,21 +137,22 @@ def tiles(body):
     return out + (f'<div class="foot">{foot}</div>' if foot.strip() else "")
 
 
-def render(md, title=None, cards=False):
-    t, body = convert(md)
+def render(md, title=None, cards=False, lang="en"):
+    L = labels(lang)
+    t, body = convert(md, L)
     if cards:
         body = tiles(body)
-    t = title or t or "Document"
-    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    t = title or t or L["page_title"]
+    return (f'<!doctype html><html lang="{L["html_lang"]}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<meta name="generator" content="job-fit">'
             f'<title>{esc(t)}</title><style>{CSS}{EXTRA_CSS}</style></head><body><main class="page">{body}</main>'
-            f'{THEME_BUTTON}{COPY_JS}</body></html>')
+            f'{theme_button(L)}{copy_js(L)}</body></html>')
 
 
 def main(argv):
     args, title, pos, i, cards = argv[1:], None, [], 0, False
-    sources, force = [], False
+    sources, force, lang = [], False, "en"
     while i < len(args):
         if args[i] == "--cards":
             cards = True
@@ -163,6 +166,9 @@ def main(argv):
         elif args[i] == "--source":
             sources.append(args[i + 1])
             i += 2
+        elif args[i] == "--lang":
+            lang = args[i + 1]
+            i += 2
         else:
             pos.append(args[i])
             i += 1
@@ -171,6 +177,7 @@ def main(argv):
         return 2
     with open(pos[0], encoding="utf-8") as f:
         md = f.read()
+    warn_lang(lang)
     if sources:
         texts = []
         for s in sources:
@@ -186,7 +193,7 @@ def main(argv):
     elif not cards:
         print("warning: no --source given, quotes were NOT checked")
     with open(pos[1], "w", encoding="utf-8") as f:
-        f.write(render(md, title, cards))
+        f.write(render(md, title, cards, lang))
     print(f"wrote {pos[1]}")
     return 0
 

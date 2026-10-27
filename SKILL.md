@@ -13,8 +13,9 @@ A job-search analyst for any role. It reads the user's CV and a vacancy, and ans
 4. What to ask the recruiter or team.
 5. What to say in the application – as talking points the user turns into a letter themselves.
 
-The language of the skill and its output is English. Quotes from vacancies and CV stay in their original language.
-Ukrainian vacancies are fine: read them as they are, do not translate quotes.
+The output language is the one the user asks for (English if they don't say); set `lang` in the report JSON
+(`en` or `uk`) and pass `--lang` to `build_page.py`, so the page's headings and labels match. Quotes from vacancies
+and CV stay in their original language. Ukrainian vacancies are fine: read them as they are, do not translate quotes.
 
 ## Hard rule: pages come from the scripts
 

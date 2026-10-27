@@ -17,6 +17,8 @@ Usage:
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
+Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk".
+An unknown lang prints a warning and uses English.
 Exit code: 0 ok, 1 invalid input or quotes not found, 2 usage.
 """
 import html
@@ -40,6 +42,69 @@ VERDICT = {
     "skip": ("❌", "Skip"),
 }
 TAGS = {"stated", "guess"}
+
+# Every fixed string on the page, per language. `lang` in the JSON picks one; English is the default.
+LABELS = {
+    "en": {
+        "html_lang": "en",
+        "status": {k: v[1] for k, v in STATUS.items()},
+        "verdict": {k: v[1] for k, v in VERDICT.items()},
+        "would_change": "What would change the verdict",
+        "requirements": "Requirements vs CV",
+        "col_requirement": "Requirement", "col_evidence": "Evidence", "col_status": "Status",
+        "confirmed": "confirmed by you",
+        "cv_fixes": "Fix in the CV",
+        "growth": "Growth", "growth_new": "New for you", "growth_same": "Same as now", "growth_unknown": "Can’t tell",
+        "red_flags": "Red flags",
+        "money": "Money and format",
+        "questions": "Questions to ask", "questions_general": "General",
+        "talking_points": "Talking points for the application", "tp_cv": "CV", "tp_vacancy": "Vacancy",
+        "letter": "Application draft", "letter_note": "Draft – check every claim before sending.",
+        "letter_copy": "Copy the draft",
+        "summary": "Summary", "col_n": "#", "col_vacancy": "Vacancy", "col_verdict": "Verdict",
+        "col_reason": "Main reason", "col_check": "Check first", "patterns": "Patterns", "next": "Next",
+        "decide": "Questions that decide this", "affects": "Affects",
+        "next_steps": "What next",
+        "profile": "Profile", "profile_unknown": "not stated",
+        "report_title": "Job fit report", "page_title": "Document",
+        "theme": "Theme", "light": "Light", "dark": "Dark", "copy": "Copy", "copied": "Copied",
+    },
+    "uk": {
+        "html_lang": "uk",
+        "status": {"match": "Збіг", "partial": "Частково", "unknown": "Немає в резюме", "gap": "Прогалина"},
+        "verdict": {"apply": "Подаватися", "questions": "Подаватися з питаннями",
+                    "check": "Спершу перевірити", "skip": "Пропустити"},
+        "would_change": "Що змінило б вердикт",
+        "requirements": "Вимоги і резюме",
+        "col_requirement": "Вимога", "col_evidence": "Доказ", "col_status": "Статус",
+        "confirmed": "підтверджено вами",
+        "cv_fixes": "Що виправити в резюме",
+        "growth": "Зростання", "growth_new": "Нове для вас", "growth_same": "Як зараз", "growth_unknown": "Не зрозуміло",
+        "red_flags": "Тривожні сигнали",
+        "money": "Гроші й формат",
+        "questions": "Що запитати", "questions_general": "Загальні",
+        "talking_points": "Тези для відгуку", "tp_cv": "Резюме", "tp_vacancy": "Вакансія",
+        "letter": "Чернетка відгуку", "letter_note": "Чернетка – перевірте кожне твердження перед надсиланням.",
+        "letter_copy": "Скопіювати чернетку",
+        "summary": "Підсумок", "col_n": "#", "col_vacancy": "Вакансія", "col_verdict": "Вердикт",
+        "col_reason": "Головна причина", "col_check": "Спершу перевірити", "patterns": "Закономірності", "next": "Далі",
+        "decide": "Питання, від яких залежить рішення", "affects": "Впливає на",
+        "next_steps": "Що далі",
+        "profile": "Профіль", "profile_unknown": "не вказано",
+        "report_title": "Звіт про відповідність", "page_title": "Документ",
+        "theme": "Тема", "light": "Світла", "dark": "Темна", "copy": "Копіювати", "copied": "Скопійовано",
+    },
+}
+
+
+def labels(lang):
+    """The label dict for `lang`; English for a missing or unknown language (the CLI warns about it)."""
+    return LABELS.get(lang, LABELS["en"]) if isinstance(lang, str) else LABELS["en"]
+
+
+def warn_lang(lang):
+    if not (isinstance(lang, str) and lang in LABELS):
+        print(f"warning: unknown lang {lang!r}, using English labels (built in: {', '.join(LABELS)})")
 
 CSS = """
 :root{color-scheme:light;--bg:#f7f7f5;--card:#ffffff;--text:#1d1d1b;--muted:#5f5e5a;--line:#e3e2dc;
@@ -101,37 +166,50 @@ nav ul{list-style:none;padding:0}
  .verdict{border-left-width:6px}}
 """
 
-THEME_BUTTON = (
-    '<div id="tt" role="group" aria-label="Theme">'
-    '<button type="button" data-t="light" class="on">Light</button>'
-    '<button type="button" data-t="dark">Dark</button></div>'
-    "<script>document.getElementById('tt').addEventListener('click',function(e){"
-    "var b=e.target.closest('button');if(!b)return;"
-    "document.documentElement.setAttribute('data-jf',b.dataset.t);"
-    "this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})});</script>"
-)
-
-COPY_JS = (
-    "<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-cmd]');if(!b)return;"
-    "var t=b.getAttribute('data-cmd'),s=b.querySelector('.cp');"
-    "function done(){b.classList.add('ok');if(s)s.textContent='Copied';"
-    "setTimeout(function(){b.classList.remove('ok');if(s)s.textContent='Copy'},1500)}"
-    "function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();"
-    "try{document.execCommand('copy')}catch(x){}a.remove();done()}"
-    "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else{fb()}"
-    "});</script>"
-)
-
-
 def esc(x):
     return html.escape("" if x is None else str(x), quote=True)
 
 
-def cmd_buttons(items):
+def theme_button(L=None):
+    L = L or LABELS["en"]
+    return (
+        f'<div id="tt" role="group" aria-label="{esc(L["theme"])}">'
+        f'<button type="button" data-t="light" class="on">{esc(L["light"])}</button>'
+        f'<button type="button" data-t="dark">{esc(L["dark"])}</button></div>'
+        "<script>document.getElementById('tt').addEventListener('click',function(e){"
+        "var b=e.target.closest('button');if(!b)return;"
+        "document.documentElement.setAttribute('data-jf',b.dataset.t);"
+        "this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})});</script>"
+    )
+
+
+def copy_js(L=None):
+    L = L or LABELS["en"]
+    def js(s):  # a single-quoted JS string literal
+        return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("<", "\\x3c") + "'"
+    copied, copy_ = js(L["copied"]), js(L["copy"])
+    return (
+        "<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-cmd]');if(!b)return;"
+        "var t=b.getAttribute('data-cmd'),s=b.querySelector('.cp');"
+        f"function done(){{b.classList.add('ok');if(s)s.textContent={copied};"
+        f"setTimeout(function(){{b.classList.remove('ok');if(s)s.textContent={copy_}}},1500)}}"
+        "function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();"
+        "try{document.execCommand('copy')}catch(x){}a.remove();done()}"
+        "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else{fb()}"
+        "});</script>"
+    )
+
+
+THEME_BUTTON = theme_button()
+COPY_JS = copy_js()
+
+
+def cmd_buttons(items, L=None):
     """Copy-to-clipboard buttons: items = [(label, command)]. The page never sends anything itself."""
+    copy_ = esc((L or LABELS["en"])["copy"])
     return '<div class="cmds">' + "".join(
         f'<button type="button" class="cmd" data-cmd="{esc(c)}"><span class="cl">{esc(l)}</span>'
-        f'<code>{esc(c)}</code><span class="cp">Copy</span></button>' for l, c in items) + "</div>"
+        f'<code>{esc(c)}</code><span class="cp">{copy_}</span></button>' for l, c in items) + "</div>"
 
 
 def validate(data):
@@ -214,9 +292,8 @@ def missing_quotes(data, sources=None, cv=None, vacancy=None):
     return out
 
 
-def badge(status):
-    mark, label = STATUS[status]
-    return f'<span class="badge {status}">{mark} {label}</span>'
+def badge(status, L):
+    return f'<span class="badge {status}">{STATUS[status][0]} {esc(L["status"][status])}</span>'
 
 
 def li(items):
@@ -229,19 +306,22 @@ def growth_item(g):
     return esc(g)
 
 
-def render_vacancy(v, idx, bad, single=False):
+def render_vacancy(v, idx, bad, single=False, L=None):
+    L = L or LABELS["en"]
     o = []
-    vm, vl = VERDICT[v["verdict"]["mark"]]
+    mark = v["verdict"]["mark"]
+    vm, vl = VERDICT[mark][0], esc(L["verdict"][mark])
     head = "" if single else f'<h2>{esc(v["title"])}</h2>'
     o.append(f'<section id="v{idx}">{head}')
-    o.append(f'<div class="card verdict {esc(v["verdict"]["mark"])}"><p class="vlabel">{vm} {vl}</p>'
+    o.append(f'<div class="card verdict {esc(mark)}"><p class="vlabel">{vm} {vl}</p>'
              f'<p style="margin:0">{esc(v["verdict"]["text"])}</p></div>')
     if v.get("would_change"):
-        o.append('<h3>What would change the verdict</h3>' + li([esc(x) for x in v["would_change"]]))
+        o.append(f'<h3>{esc(L["would_change"])}</h3>' + li([esc(x) for x in v["would_change"]]))
     reqs = v.get("requirements", [])
     if reqs:
-        o.append('<h2>Requirements vs CV</h2><div class="card"><table><thead><tr><th>Requirement</th>'
-                 '<th>Evidence</th><th>Status</th></tr></thead><tbody>')
+        c_req, c_ev, c_st = esc(L["col_requirement"]), esc(L["col_evidence"]), esc(L["col_status"])
+        o.append(f'<h2>{esc(L["requirements"])}</h2><div class="card"><table><thead><tr><th>{c_req}</th>'
+                 f'<th>{c_ev}</th><th>{c_st}</th></tr></thead><tbody>')
         for r in reqs:
             req_cls = ' class="missing"' if ("requirement", r.get("requirement")) in bad else ""
             ev = r.get("evidence")
@@ -249,103 +329,113 @@ def render_vacancy(v, idx, bad, single=False):
             ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not r.get("confirmed") else (
                 esc(ev) if ev else '<span class="ev">—</span>')
             note = f'<span class="note">{esc(r["note"])}</span>' if r.get("note") else ""
-            conf = '<span class="tag">confirmed by you</span>' if r.get("confirmed") else ""
-            o.append(f'<tr><td data-l="Requirement"><q{req_cls}>{esc(r["requirement"])}</q></td>'
-                     f'<td data-l="Evidence">{ev_html}</td>'
-                     f'<td data-l="Status">{badge(r["status"])}{conf}{note}</td></tr>')
+            conf = f'<span class="tag">{esc(L["confirmed"])}</span>' if r.get("confirmed") else ""
+            o.append(f'<tr><td data-l="{c_req}"><q{req_cls}>{esc(r["requirement"])}</q></td>'
+                     f'<td data-l="{c_ev}">{ev_html}</td>'
+                     f'<td data-l="{c_st}">{badge(r["status"], L)}{conf}{note}</td></tr>')
         o.append('</tbody></table></div>')
     if v.get("cv_fixes"):
-        o.append('<h2>Fix in the CV</h2><div class="card">' + li(
+        o.append(f'<h2>{esc(L["cv_fixes"])}</h2><div class="card">' + li(
             [f'<span class="kind">{esc(f.get("kind"))}.</span> {esc(f.get("text"))}' for f in v["cv_fixes"]]) + '</div>')
     g = v.get("growth")
     if g:
-        o.append('<h2>Growth</h2><div class="cols">')
-        for key, title in (("new", "New for you"), ("same", "Same as now"), ("unknown", "Can’t tell")):
-            o.append(f'<div class="card"><h3 style="margin-top:0">{title}</h3>'
+        o.append(f'<h2>{esc(L["growth"])}</h2><div class="cols">')
+        for key in ("new", "same", "unknown"):
+            o.append(f'<div class="card"><h3 style="margin-top:0">{esc(L["growth_" + key])}</h3>'
                      + li([growth_item(x) for x in g.get(key, [])]) + '</div>')
         o.append('</div>')
     if v.get("red_flags"):
-        o.append('<h2>Red flags</h2>')
+        o.append(f'<h2>{esc(L["red_flags"])}</h2>')
         for f in v["red_flags"]:
             cls = ' class="missing"' if ("red flag quote", f.get("quote")) in bad else ""
             o.append(f'<div class="card flag"><q{cls}>{esc(f.get("quote"))}</q>'
                      f'<span class="note">{esc(f.get("text"))}</span></div>')
     if v.get("money"):
-        o.append(f'<h2>Money and format</h2><div class="card">{esc(v["money"])}</div>')
+        o.append(f'<h2>{esc(L["money"])}</h2><div class="card">{esc(v["money"])}</div>')
     if v.get("questions"):
-        o.append('<h2>Questions to ask</h2><div class="card">')
+        o.append(f'<h2>{esc(L["questions"])}</h2><div class="card">')
         groups = {}
         for q in v["questions"]:
-            groups.setdefault(q.get("group", "General"), []).append(q)
+            groups.setdefault(q.get("group", L["questions_general"]), []).append(q)
         for name, qs in groups.items():
             o.append(f'<h3 style="margin-top:0">{esc(name)}</h3>' + li(
                 [esc(q["question"]) + (f'<span class="note">{esc(q["why"])}</span>' if q.get("why") else "")
                  for q in qs]))
         o.append('</div>')
     if v.get("talking_points"):
-        o.append('<h2>Talking points for the application</h2><div class="card"><ol style="padding-left:1.2rem;margin:0">')
+        o.append(f'<h2>{esc(L["talking_points"])}</h2><div class="card"><ol style="padding-left:1.2rem;margin:0">')
+        tp_cv, tp_vac = esc(L["tp_cv"]), esc(L["tp_vacancy"])
         for t in v["talking_points"]:
             src = ""
             if t.get("cv"):
-                src += f'CV: <q>{esc(t["cv"])}</q>' if not t.get("confirmed") else f'CV: {esc(t["cv"])} <span class="tag">confirmed by you</span>'
+                src += (f'{tp_cv}: <q>{esc(t["cv"])}</q>' if not t.get("confirmed")
+                        else f'{tp_cv}: {esc(t["cv"])} <span class="tag">{esc(L["confirmed"])}</span>')
             if t.get("vacancy"):
-                src += f'<br>Vacancy: <q>{esc(t["vacancy"])}</q>'
+                src += f'<br>{tp_vac}: <q>{esc(t["vacancy"])}</q>'
             o.append(f'<li style="margin:10px 0"><strong>{esc(t["point"])}</strong>'
                      f'<span class="note">{src}</span></li>')
         o.append('</ol></div>')
     if v.get("letter_draft"):
-        o.append('<h2>Application draft</h2><div class="card">'
-                 '<p class="note" style="margin-top:0">Draft – check every claim before sending.</p>'
+        o.append(f'<h2>{esc(L["letter"])}</h2><div class="card">'
+                 f'<p class="note" style="margin-top:0">{esc(L["letter_note"])}</p>'
                  f'<div style="white-space:pre-wrap;line-height:1.55">{esc(v["letter_draft"])}</div>'
-                 + cmd_buttons([("Copy the draft", v["letter_draft"])]) + '</div>')
+                 + cmd_buttons([(L["letter_copy"], v["letter_draft"])], L) + '</div>')
     o.append('</section>')
     return "\n".join(o)
 
 
-def render_summary(summary, vacs):
-    o = ['<h2>Summary</h2><div class="card"><table><thead><tr><th>#</th><th>Vacancy</th><th>Verdict</th>'
-         '<th>Main reason</th><th>Check first</th></tr></thead><tbody>']
+def render_summary(summary, vacs, L=None):
+    L = L or LABELS["en"]
+    cols = [esc(L[k]) for k in ("col_n", "col_vacancy", "col_verdict", "col_reason", "col_check")]
+    n, vac, ver, reason, check = cols
+    o = [f'<h2>{esc(L["summary"])}</h2><div class="card"><table><thead><tr>'
+         + "".join(f"<th>{c}</th>" for c in cols) + '</tr></thead><tbody>']
     for i, r in enumerate(summary.get("rows", []), 1):
-        mk, lb = VERDICT[r["verdict"]]
-        o.append(f'<tr><td data-l="#">{i}</td><td data-l="Vacancy"><a href="#v{i}">{esc(r.get("vacancy"))}</a></td>'
-                 f'<td data-l="Verdict">{mk} {lb}</td><td data-l="Main reason">{esc(r.get("reason"))}</td>'
-                 f'<td data-l="Check first">{esc(r.get("check"))}</td></tr>')
+        mk, lb = VERDICT[r["verdict"]][0], esc(L["verdict"][r["verdict"]])
+        o.append(f'<tr><td data-l="{n}">{i}</td><td data-l="{vac}"><a href="#v{i}">{esc(r.get("vacancy"))}</a></td>'
+                 f'<td data-l="{ver}">{mk} {lb}</td><td data-l="{reason}">{esc(r.get("reason"))}</td>'
+                 f'<td data-l="{check}">{esc(r.get("check"))}</td></tr>')
     o.append('</tbody></table></div>')
     if summary.get("patterns"):
-        o.append('<h3>Patterns</h3>' + li([esc(x) for x in summary["patterns"]]))
+        o.append(f'<h3>{esc(L["patterns"])}</h3>' + li([esc(x) for x in summary["patterns"]]))
     if summary.get("next"):
-        o.append('<h3>Next</h3>' + li([esc(x) for x in summary["next"]]))
+        o.append(f'<h3>{esc(L["next"])}</h3>' + li([esc(x) for x in summary["next"]]))
     return "\n".join(o)
 
 
-def render_decide(decide):
-    o = ['<h2>Questions that decide this</h2>']
+def render_decide(decide, L=None):
+    L = L or LABELS["en"]
+    o = [f'<h2>{esc(L["decide"])}</h2>']
     for d in decide:
         opts = "".join(f'<span class="opt">{esc(x)}</span>' for x in d.get("options", []))
         o.append(f'<div class="card"><strong>{esc(d.get("question"))}</strong>'
                  f'<div class="opts">{opts}</div>'
-                 + (f'<span class="note">Affects: {esc(d["affects"])}</span>' if d.get("affects") else "") + '</div>')
+                 + (f'<span class="note">{esc(L["affects"])}: {esc(d["affects"])}</span>' if d.get("affects") else "")
+                 + '</div>')
     return "\n".join(o)
 
 
 def render(data, bad=()):
+    L = labels(data.get("lang"))
     vacs = data["vacancies"]
-    title = data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else "Job fit report")
-    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">Profile: {esc(data.get("profile_source", "not stated"))}</p>']
+    title = data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else L["report_title"])
+    profile = data.get("profile_source", L["profile_unknown"])
+    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">{esc(L["profile"])}: {esc(profile)}</p>']
     if data.get("summary"):
-        parts.append(render_summary(data["summary"], vacs))
+        parts.append(render_summary(data["summary"], vacs, L))
     for i, v in enumerate(vacs, 1):
-        parts.append(render_vacancy(v, i, set(bad), single=len(vacs) == 1 and not data.get("title")))
+        parts.append(render_vacancy(v, i, set(bad), single=len(vacs) == 1 and not data.get("title"), L=L))
     if data.get("decide"):
-        parts.append(render_decide(data["decide"]))
+        parts.append(render_decide(data["decide"], L))
     if data.get("next_steps"):
-        parts.append("<h2>What next</h2>" + cmd_buttons([(n["label"], n["command"]) for n in data["next_steps"]]))
+        parts.append(f'<h2>{esc(L["next_steps"])}</h2>'
+                     + cmd_buttons([(n["label"], n["command"]) for n in data["next_steps"]], L))
     body = "\n".join(parts)
-    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    return (f'<!doctype html><html lang="{L["html_lang"]}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<meta name="generator" content="job-fit">'
             f'<title>{esc(title)}</title><style>{CSS}</style></head><body><main>{body}</main>'
-            f'{THEME_BUTTON}{COPY_JS}</body></html>')
+            f'{theme_button(L)}{copy_js(L)}</body></html>')
 
 
 def to_pdf(html_path, pdf_path):
@@ -387,6 +477,7 @@ def main(argv):
     if errs:
         print("INVALID:\n  - " + "\n  - ".join(errs))
         return 1
+    warn_lang(data.get("lang", "en"))
     bad = []
     if any(paths.values()):
         if paths["--source"]:
