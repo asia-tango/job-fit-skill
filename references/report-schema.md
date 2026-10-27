@@ -42,8 +42,10 @@ Write the JSON directly; do not write the analysis twice (once in chat, once in 
 
 ## Rules
 
-- `requirement`, `evidence`, red-flag `quote`, talking-point `cv` and `vacancy` are quotes. They must appear
-  in the CV or vacancy text; the script checks them against the `--source` files and refuses to render otherwise.
+- `requirement`, `evidence`, red-flag `quote`, talking-point `cv` and `vacancy` are quotes, each from its own document:
+  `evidence` and talking-point `cv` from the CV (`--cv`); `requirement`, red-flag `quote` and talking-point `vacancy`
+  from the vacancy (`--vacancy`). The script refuses to render if a quote is not in its document, so a vacancy line
+  pasted as CV evidence fails.
 - `confirmed: true` means the user confirmed it in chat. Then `evidence` / `cv` is free text, is shown with a
   `confirmed by you` tag, and is not quote-checked. A `match` must still have evidence.
 - `status` is ✅ `match`, ⚠️ `partial`, ❓ `unknown` (not in the CV, ask), ❌ `gap`. Marks are added by the script.

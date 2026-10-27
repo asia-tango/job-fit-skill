@@ -45,7 +45,8 @@ Put the table in the README only when it has real rows. Don't claim "tested on N
 
 - The answer arrives as a page (artifact or HTML file), and the chat reply is 2–3 lines with `Profile: <source>`.
 - Marks and colors match the statuses; open it in light and dark mode and on a phone width.
-- Break a quote on purpose in the JSON: `build_report.py` must refuse to render.
+- Break a quote on purpose in the JSON: `build_report.py report.json r.html --cv cv.md --vacancy vacancy.txt` must refuse to render.
+- Paste a vacancy line as `evidence`: it must refuse too (the quote is real, but not from the CV).
 - After Setup, the profile arrives as a page and as a `profile.md` to attach; long research or prep text also arrives as a page, not as a wall of chat text.
 
 ## Prep mode

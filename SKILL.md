@@ -104,9 +104,11 @@ If the user asks for an application text, put it in the same page as `letter_dra
 not in chat.
 
 1. Write the analysis as JSON (`references/report-schema.md`), once. Not also as chat text.
-2. Run `python scripts/build_report.py analysis.json report.html --source <cv.txt> --source <vacancy.txt>`.
+2. Run `python scripts/build_report.py analysis.json report.html --cv <cv.txt> --vacancy <vacancy.txt>`.
    It renders marks, colors, light/dark themes and print styles in about a second, and refuses to render if a quote
-   is not in the CV or vacancy (this replaces step 10's separate check). Fix the quote, don't use `--force`.
+   is not in its own document: evidence must be in the CV, requirements and red flags in the vacancy (this replaces
+   step 10's separate check). Fix the quote, don't use `--force`. Don't use `--source`: it can't tell the CV from
+   the vacancy.
 3. Deliver the page: publish the script's `.html` file as a private Artifact if the session has one; otherwise send the HTML file;
    otherwise fall back to the chat format above. The page contains CV details, so keep it private.
 4. The chat reply is 2–3 lines: `Profile: <source>`, the verdict with its mark, and the page. Open questions

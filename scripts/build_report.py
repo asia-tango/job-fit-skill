@@ -6,11 +6,14 @@ this script turns it into a readable page with status marks, colors, a light pag
 and print styles. Fast, and the same look every time. Everything is escaped.
 
 Usage:
-  python build_report.py analysis.json report.html --source cv.txt --source vacancy.txt
-  python build_report.py analysis.json report.html --source cv.txt --pdf report.pdf
+  python build_report.py analysis.json report.html --cv cv.txt --vacancy vacancy.txt
+  python build_report.py analysis.json report.html --cv cv.txt --vacancy vacancy.txt --pdf report.pdf
 
---source   a document the quotes must come from (CV, vacancy). Repeat it. Without any
-           --source the quotes are NOT checked and a warning is printed.
+--cv       the CV. `evidence` and talking point `cv` must be quoted from it. Repeatable.
+--vacancy  the vacancy. `requirement`, red flag `quote` and talking point `vacancy` must be
+           quoted from it. Repeatable.
+--source   old form: a document of unknown role, counts for both. Prints a warning; use
+           --cv and --vacancy. Without any of these the quotes are NOT checked.
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
@@ -169,26 +172,36 @@ def validate(data):
 
 
 def quote_fields(v):
-    """Yield (label, text) for every field that must be copied verbatim from a source."""
+    """Yield (label, text, doc) for every field that must be copied verbatim from a source.
+
+    `doc` is the document the quote must come from: "cv" or "vacancy".
+    """
     for r in v.get("requirements", []):
-        yield "requirement", r.get("requirement")
+        yield "requirement", r.get("requirement"), "vacancy"
         if not r.get("confirmed"):
-            yield "evidence", r.get("evidence")
+            yield "evidence", r.get("evidence"), "cv"
     for f in v.get("red_flags", []):
-        yield "red flag quote", f.get("quote")
+        yield "red flag quote", f.get("quote"), "vacancy"
     for t in v.get("talking_points", []):
         if not t.get("confirmed"):
-            yield "talking point (CV)", t.get("cv")
-        yield "talking point (vacancy)", t.get("vacancy")
+            yield "talking point (CV)", t.get("cv"), "cv"
+        yield "talking point (vacancy)", t.get("vacancy"), "vacancy"
 
 
-def missing_quotes(data, sources):
-    """Return [(label, text)] for quoted fields not found in any source."""
-    haystack = normalize("\n".join(sources))
+def missing_quotes(data, sources=None, cv=None, vacancy=None):
+    """Return [(label, text)] for quoted fields not found in their own document.
+
+    `cv` and `vacancy` are lists of texts with a known role: CV quotes are checked only against
+    `cv`, vacancy quotes only against `vacancy`. `sources` are texts of unknown role and count for
+    both (the old behavior). A role with no texts at all is not checked.
+    """
+    sources = list(sources or [])
+    hay = {"cv": list(cv or []) + sources, "vacancy": list(vacancy or []) + sources}
+    hay = {k: normalize("\n".join(t)) if t else None for k, t in hay.items()}
     out = []
     for v in data.get("vacancies", []):
-        for label, text in quote_fields(v):
-            if text and normalize(text) not in haystack:
+        for label, text, doc in quote_fields(v):
+            if text and hay[doc] is not None and normalize(text) not in hay[doc]:
                 out.append((label, text))
     return out
 
@@ -343,13 +356,14 @@ def to_pdf(html_path, pdf_path):
 
 def main(argv):
     args = argv[1:]
-    sources, pdf, force = [], None, False
+    paths = {"--source": [], "--cv": [], "--vacancy": []}
+    pdf, force = None, False
     pos = []
     i = 0
     while i < len(args):
         a = args[i]
-        if a == "--source":
-            sources.append(args[i + 1]); i += 2
+        if a in paths:
+            paths[a].append(args[i + 1]); i += 2
         elif a == "--pdf":
             pdf = args[i + 1]; i += 2
         elif a == "--force":
@@ -366,20 +380,28 @@ def main(argv):
         print("INVALID:\n  - " + "\n  - ".join(errs))
         return 1
     bad = []
-    if sources:
-        texts = []
-        for s in sources:
-            with open(s, encoding="utf-8") as f:
-                texts.append(f.read())
-        bad = missing_quotes(data, texts)
+    if any(paths.values()):
+        if paths["--source"]:
+            print("warning: --source does not know which file is the CV; use --cv and --vacancy")
+        elif not paths["--cv"]:
+            print("warning: no --cv given, CV quotes were NOT checked")
+        elif not paths["--vacancy"]:
+            print("warning: no --vacancy given, vacancy quotes were NOT checked")
+        texts = {}
+        for flag, files in paths.items():
+            texts[flag] = []
+            for s in files:
+                with open(s, encoding="utf-8") as f:
+                    texts[flag].append(f.read())
+        bad = missing_quotes(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
         if bad:
-            print(f"{len(bad)} quote(s) not found in the sources:")
+            print(f"{len(bad)} quote(s) not found in their document (CV quotes in the CV, vacancy quotes in the vacancy):")
             for label, text in bad:
                 print(f'  - {label}: "{text}"')
             if not force:
                 return 1
     else:
-        print("warning: no --source given, quotes were NOT checked")
+        print("warning: no --cv / --vacancy given, quotes were NOT checked")
     with open(pos[1], "w", encoding="utf-8") as f:
         f.write(render(data, bad))
     print(f"wrote {pos[1]}")
