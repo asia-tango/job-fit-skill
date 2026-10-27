@@ -73,7 +73,7 @@ def test_requirement_copied_from_cv_is_rejected(tmp_path):
 def test_trivially_short_evidence_is_rejected(tmp_path):
     def m(v):
         r = v["requirements"][0]
-        r["evidence"], r["status"], r["confirmed"] = "the", "match", False
+        r["evidence"], r["status"], r["confirmed"] = "Angular", "match", False
     assert build(tmp_path, report_with(tmp_path, m)).returncode == 1
 
 

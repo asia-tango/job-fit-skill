@@ -25,7 +25,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_quotes import normalize  # noqa: E402
+from verify_quotes import MIN_LEN, normalize  # noqa: E402
 
 STATUS = {
     "match": ("✅", "Match"),
@@ -188,12 +188,18 @@ def quote_fields(v):
         yield "talking point (vacancy)", t.get("vacancy"), "vacancy"
 
 
+def too_short(text, doc):
+    """A CV quote shorter than MIN_LEN ("the", "Angular") proves nothing, even if it is in the CV."""
+    return doc == "cv" and len(normalize(text)) < MIN_LEN
+
+
 def missing_quotes(data, sources=None, cv=None, vacancy=None):
-    """Return [(label, text)] for quoted fields not found in their own document.
+    """Return [(label, text)] for quoted fields not found in their own document, or too short.
 
     `cv` and `vacancy` are lists of texts with a known role: CV quotes are checked only against
     `cv`, vacancy quotes only against `vacancy`. `sources` are texts of unknown role and count for
-    both (the old behavior). A role with no texts at all is not checked.
+    both (the old behavior). A role with no texts at all is not checked for presence, but CV quotes
+    are always checked for length.
     """
     sources = list(sources or [])
     hay = {"cv": list(cv or []) + sources, "vacancy": list(vacancy or []) + sources}
@@ -201,7 +207,9 @@ def missing_quotes(data, sources=None, cv=None, vacancy=None):
     out = []
     for v in data.get("vacancies", []):
         for label, text, doc in quote_fields(v):
-            if text and hay[doc] is not None and normalize(text) not in hay[doc]:
+            if not text:
+                continue
+            if too_short(text, doc) or (hay[doc] is not None and normalize(text) not in hay[doc]):
                 out.append((label, text))
     return out
 
@@ -395,9 +403,11 @@ def main(argv):
                     texts[flag].append(f.read())
         bad = missing_quotes(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
         if bad:
-            print(f"{len(bad)} quote(s) not found in their document (CV quotes in the CV, vacancy quotes in the vacancy):")
+            print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
             for label, text in bad:
-                print(f'  - {label}: "{text}"')
+                doc = "cv" if label in ("evidence", "talking point (CV)") else "vacancy"
+                why = f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else ""
+                print(f'  - {label}: "{text}"{why}')
             if not force:
                 return 1
     else:
