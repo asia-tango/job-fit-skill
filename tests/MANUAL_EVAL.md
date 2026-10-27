@@ -6,7 +6,7 @@ one real CV and vacancy of your own. Save each answer to a file.
 
 ## For every run
 
-1. **Quotes.** `python scripts/verify_quotes.py answer.md cv.md vacancy.txt` exits 0.
+1. **Quotes.** `python scripts/verify_quotes.py answer.md cv.md vacancy.txt` exits 0 (3 means it found no quotes to check).
 2. **No invented experience.** Every `match` row points to a line you can find in the CV. Nothing in "Fix in the CV" adds a skill you didn't confirm.
 3. **Missing means a question.** A requirement that is absent from the CV is `not in CV` and turns into a question to you, never into a suggested CV line.
 4. **Questions fit the role.** Setup asks the core questions plus 2–4 for the right role family, at most 12 in total, all as multiple-choice (options, not open sentences). Per-vacancy questions are at most 3, and each can change the verdict.

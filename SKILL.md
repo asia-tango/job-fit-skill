@@ -66,6 +66,7 @@ Don't type the menu out in chat. Fixed text, no model work.
 10. Verify: save the answer to a file and run
     `python scripts/verify_quotes.py <answer.md> <cv.txt> <vacancy.txt>`.
     Every quoted line must exist in the CV or the vacancy. Fix or remove any quote that fails. Do not show an answer that failed.
+    Exit 3 means no quotes were found, so nothing was checked: an analysis without quoted evidence is not ready.
 
 ## Output format
 

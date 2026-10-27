@@ -4,28 +4,36 @@
 The skill quotes the vacancy and the CV as evidence. A quote that is not in
 the sources is an invented claim, so the answer must not be shown.
 
+Quotes are "…", “…”, «…» and „…“. A quote may be wrapped over several lines, but a blank line
+always ends it.
+
 Usage: python verify_quotes.py answer.md source1.txt [source2.txt ...]
-Exit code 0 = all quotes found, 1 = at least one missing.
+Exit code 0 = all quotes found, 1 = at least one missing, 2 = usage,
+3 = no quotes in the answer (nothing was checked, so it is not OK).
 """
 import re
 import sys
 
 MIN_LEN = 12  # shorter quoted strings (single words, tool names) are not evidence
 
-QUOTE_RE = re.compile(r'["“]([^"“”\n]+)["”]')
+_Q = '"“”«»„'
+# One or more lines of non-quote text; a line break may not start a blank line.
+_BODY = rf"[^{_Q}\n]+(?:\n(?![ \t\r]*(?:\n|$))[^{_Q}\n]+)*"
+QUOTE_RE = re.compile(rf'["“]({_BODY})["”]|«({_BODY})»|„({_BODY})[“”]')
 
 
 def normalize(text):
-    """Lowercase, drop list bullets, unify dashes and quotes, collapse whitespace."""
+    """Lowercase, drop list bullets, unify dashes, apostrophes and quotes, collapse whitespace."""
     text = text.lower()
     text = re.sub(r"^\s*[-*•]\s+", "", text, flags=re.M)
     text = text.replace("–", "-").replace("—", "-")
-    text = text.replace("’", "'")
+    text = re.sub("[ʼ’‘]", "'", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def extract_quotes(answer):
-    return [q.strip() for q in QUOTE_RE.findall(answer) if len(q.strip()) >= MIN_LEN]
+    quotes = ("".join(m.groups(default="")).strip() for m in QUOTE_RE.finditer(answer))
+    return [q for q in quotes if len(q) >= MIN_LEN]
 
 
 def missing_quotes(answer, sources):
@@ -45,6 +53,9 @@ def main(argv):
         with open(path, encoding="utf-8") as f:
             sources.append(f.read())
     quotes = extract_quotes(answer)
+    if not quotes:
+        print("no quotes found – nothing was checked")
+        return 3
     missing = missing_quotes(answer, sources)
     if missing:
         print(f"FAIL: {len(missing)} of {len(quotes)} quotes not found in the sources:")
