@@ -12,16 +12,21 @@ Usage:
 --cv       the CV. `evidence` and talking point `cv` must be quoted from it. Repeatable.
 --vacancy  the vacancy. `requirement`, red flag `quote` and talking point `vacancy` must be
            quoted from it. Repeatable.
---source   old form: a document of unknown role, counts for both. Prints a warning; use
-           --cv and --vacancy. Without any of these the quotes are NOT checked.
+           Both --cv and --vacancy are required: without them, or with only one, no page is written
+           (exit 2, also with --force).
+--source   legacy form: a document of unknown role, counts for both. Works alone, with a warning;
+           it can't be mixed with --cv / --vacancy (exit 2).
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
+An empty file (only whitespace) is refused (exit 2). A file under 200 characters without spaces, or
+the same file / the same text given as --cv and --vacancy, only prints a warning.
 Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk"
 (case-insensitive, "uk-UA" and "ua" work too). An unknown lang prints a warning and uses English.
 `confirmed` must be true or false; a quote field that is present (not null) must be non-blank text.
 Exit code: 0 ok, 1 invalid analysis or quotes not found, 2 usage or input error (a flag without
-a value, a missing or non-UTF-8 file, malformed JSON).
+a value, --cv or --vacancy missing, --source mixed with them, a missing, empty or non-UTF-8 file,
+malformed JSON).
 """
 import html
 import os
@@ -30,7 +35,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evidence import (  # noqa: E402,F401 – normalize and too_short are re-exported
     MIN_LEN, blank, check_fields, confirmed_error, normalize, strip_quote_marks, too_short)
-from verify_quotes import InputError, flag_value, read_json, read_text, utf8_output  # noqa: E402
+from verify_quotes import InputError, flag_value, read_json, read_source, utf8_output  # noqa: E402
 
 STATUS = {
     "match": ("✅", "Match"),
@@ -497,6 +502,25 @@ def main(argv):
         return 2
 
 
+SHORT_FILE = 200  # non-whitespace characters; a real vacancy can be this short, so it is only a warning
+
+
+def warn_inputs(paths, texts, what):
+    """Mechanical warnings about the inputs: a short file, or the same file given as CV and vacancy."""
+    for flag, files in paths.items():
+        for path, text in zip(files, texts[flag]):
+            n = len("".join(text.split()))
+            if n < SHORT_FILE:
+                print(f"warning: {what[flag]} file is short ({n} characters without spaces) – "
+                      f"check it is the whole text: {path}")
+    for cv_path, cv_text in zip(paths["--cv"], texts["--cv"]):
+        for vac_path, vac_text in zip(paths["--vacancy"], texts["--vacancy"]):
+            same_path = os.path.normcase(os.path.abspath(cv_path)) == os.path.normcase(os.path.abspath(vac_path))
+            if same_path or cv_text.strip() == vac_text.strip():
+                print(f"warning: the same file (or the same text) is given as --cv and --vacancy: "
+                      f"{cv_path}, {vac_path} – check which one is the CV")
+
+
 def build(args):
     return build_cli(args, usage=__doc__, kind="analysis JSON", validate=validate, missing=missing_quotes,
                      render=render, cv_labels=("evidence", "talking point (CV)"), allow_source=True)
@@ -523,36 +547,35 @@ def build_cli(args, *, usage, kind, validate, missing, render, cv_labels, allow_
     if len(pos) != 2:
         print(usage)
         return 2
+    # An unchecked page must never reach the user: both roles are required, --force doesn't change that.
+    if paths["--source"] and (paths["--cv"] or paths["--vacancy"]):
+        raise InputError("--source can't be mixed with --cv / --vacancy; give only --cv and --vacancy")
+    if not paths["--source"] and not (paths["--cv"] and paths["--vacancy"]):
+        absent = " and ".join(f for f in ("--cv", "--vacancy") if not paths[f])
+        raise InputError(f"{absent} missing: both --cv and --vacancy are required, so no page was written")
     data = read_json(pos[0], kind)
     if not isinstance(data, dict):
         raise InputError(f"{kind} must be a JSON object, not a {type(data).__name__}: {pos[0]}")
     what = {"--source": "source", "--cv": "CV", "--vacancy": "vacancy"}
-    texts = {flag: [read_text(s, what[flag]) for s in files] for flag, files in paths.items()}
+    texts = {flag: [read_source(s, what[flag]) for s in files] for flag, files in paths.items()}
     errs = validate(data)
     if errs:
         print("INVALID:\n  - " + "\n  - ".join(errs))
         return 1
     warn_lang(data.get("lang", "en"))
-    bad = []
-    if any(paths.values()):
-        if paths["--source"]:
-            print("warning: --source does not know which file is the CV; use --cv and --vacancy")
-        elif not paths["--cv"]:
-            print("warning: no --cv given, CV quotes were NOT checked")
-        elif not paths["--vacancy"]:
-            print("warning: no --vacancy given, vacancy quotes were NOT checked")
-        bad = missing(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
-        if bad:
-            print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
-            for label, text in bad:
-                doc = "cv" if label in cv_labels else "vacancy"
-                why = (" – blank" if blank(text) else
-                       f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else "")
-                print(f'  - {label}: "{text}"{why}')
-            if not force:
-                return 1
-    else:
-        print("warning: no --cv / --vacancy given, quotes were NOT checked")
+    warn_inputs(paths, texts, what)
+    if paths["--source"]:
+        print("warning: --source does not know which file is the CV; use --cv and --vacancy")
+    bad = missing(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
+    if bad:
+        print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
+        for label, text in bad:
+            doc = "cv" if label in cv_labels else "vacancy"
+            why = (" – blank" if blank(text) else
+                   f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else "")
+            print(f'  - {label}: "{text}"{why}')
+        if not force:
+            return 1
     with open(pos[1], "w", encoding="utf-8") as f:
         f.write(render(data, bad))
     print(f"wrote {pos[1]}")

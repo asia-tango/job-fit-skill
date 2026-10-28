@@ -14,11 +14,14 @@ Usage:
 --vacancy  the vacancy. `requirement` and brush-up `vacancy` must be quoted from it. Repeatable.
 --pdf      also write a PDF (needs Playwright with Chromium).
 --force    write the page even if some quotes were not found (they are marked on the page).
-There is no --source: a prep always names which file is the CV and which is the vacancy.
+Both --cv and --vacancy are required: without them, or with only one, no page is written (exit 2, also
+with --force). There is no --source: a prep always names which file is the CV and which is the vacancy.
+An empty file (only whitespace) is refused (exit 2). A file under 200 characters without spaces, or
+the same file / the same text given as --cv and --vacancy, only prints a warning.
 Labels follow "lang" in the JSON: "en" (default) or "uk" (case-insensitive, "uk-UA" and "ua" work too).
 Every section is optional; a prep with only `brush_up` (the topic checklist) is valid.
 Exit code: 0 ok, 1 invalid prep or quotes not found, 2 usage or input error (a flag without
-a value, a missing or non-UTF-8 file, malformed JSON, --source).
+a value, --cv or --vacancy missing, --source, a missing, empty or non-UTF-8 file, malformed JSON).
 """
 import os
 import sys

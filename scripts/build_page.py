@@ -18,7 +18,7 @@ Supported Markdown: # ## ### headings, paragraphs, - and 1. lists, > quotes, tab
 (consecutive lines form one group). Everything is HTML-escaped first; only http(s) links are kept.
 The first `# Heading` becomes the page title. The look matches build_report.py (light default, dark toggle, print).
 Exit code: 0 ok, 1 quotes not found or a quote mark unpaired, 2 usage or input error
-(a flag without a value, a missing or non-UTF-8 file).
+(a flag without a value, a missing, empty or non-UTF-8 file).
 """
 import os
 import re
@@ -27,7 +27,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_report import CSS, esc, cmd_buttons, copy_js, labels, theme_button, warn_lang  # noqa: E402
 from verify_quotes import (  # noqa: E402
-    InputError, flag_value, missing_quotes, read_text, unpaired_marks, utf8_output)
+    InputError, flag_value, missing_quotes, read_source, read_text, unpaired_marks, utf8_output)
 
 EXTRA_CSS = """
 .page p{margin:8px 0}.page blockquote{margin:10px 0;padding:6px 14px;border-left:4px solid var(--mint);color:var(--muted)}
@@ -187,7 +187,7 @@ def build(args):
         print(__doc__)
         return 2
     md = read_text(pos[0], "page text")
-    texts = [read_text(s, "source") for s in sources]
+    texts = [read_source(s, "source") for s in sources]
     warn_lang(lang)
     if sources:
         missing = missing_quotes(md, texts)

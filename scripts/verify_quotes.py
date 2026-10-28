@@ -11,7 +11,7 @@ it would shift the pairing and hide the quotes after it.
 
 Usage: python verify_quotes.py answer.md source1.txt [source2.txt ...]
 Exit code 0 = all quotes found, 1 = a quote missing or a quote mark unpaired,
-2 = usage or input error (missing file, not UTF-8),
+2 = usage or input error (missing file, not UTF-8, an empty source),
 3 = no quotes in the answer (nothing was checked, so it is not OK).
 """
 import json
@@ -41,6 +41,14 @@ def read_text(path, what="file"):
         raise InputError(f"{what} is not UTF-8 text: {path} (save it as UTF-8)") from None
     except OSError as e:
         raise InputError(f"cannot read {what}: {path} ({e.strerror})") from None
+
+
+def read_source(path, what="source"):
+    """A CV, vacancy or source text. A file with nothing but whitespace is refused (a scanned PDF, a failed copy)."""
+    text = read_text(path, what)
+    if not text.strip():
+        raise InputError(f"{what[:1].upper()}{what[1:]} file is empty – a scanned PDF? Provide the text. ({path})")
+    return text
 
 
 def read_json(path, what="JSON file"):
@@ -117,7 +125,7 @@ def main(argv):
         return 2
     try:
         answer = read_text(argv[1], "answer")
-        sources = [read_text(p, "source") for p in argv[2:]]
+        sources = [read_source(p, "source") for p in argv[2:]]
     except InputError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
