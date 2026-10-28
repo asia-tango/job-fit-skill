@@ -1,8 +1,10 @@
 # Interview prep (Prep mode)
 
-Used when the user is invited to an interview for one vacancy. Output: Markdown, rendered and quote-checked with
-`python scripts/build_page.py prep.md prep.html --source <cv.txt> --source <vacancy.txt>`. If a quote is not in
-the CV or the vacancy, no page is written: fix the quote, don't use `--force`. It builds on the CV and the vacancy only.
+Used when the user is invited to an interview for one vacancy. Output: JSON (`prep-schema.md`), rendered and
+quote-checked with `python scripts/build_prep.py prep.json prep.html --cv <cv.txt> --vacancy <vacancy.txt>`.
+Requirements are quoted from the vacancy, episodes from the CV; if a quote is not in its own document, no page is
+written: fix the quote, don't use `--force`. It builds on the CV and the vacancy only. Never build prep with
+`build_page.py`.
 
 ## Rules
 
@@ -37,4 +39,5 @@ If the user asks for "weak spots only", give only sections 2 (the ❌ and ❓ qu
 
 ## Style
 
-Direct, no pep talk. Short lines. Marks (✅ ⚠️ ❓ ❌) in front of the likely questions show how well the CV covers them.
+Direct, no pep talk. Short lines. Each likely question has a `status`; the page shows its mark (✅ ⚠️ ❓ ❌) in front,
+so it is clear how well the CV covers it.

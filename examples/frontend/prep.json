@@ -1,0 +1,61 @@
+{
+  "lang": "en",
+  "profile_source": "example (fictional CV)",
+  "title": "Interview prep: Senior Frontend Engineer (conversational UI)",
+  "process": "Not stated in the vacancy. Ask: number of stages, who interviews, length of each.",
+  "questions": [
+    {
+      "group": "role",
+      "requirement": "8+ years of professional software engineering experience",
+      "status": "gap",
+      "episode": "Frontend engineer, 6 years, mostly Angular and TypeScript",
+      "confirmed": false,
+      "frame": "They will probe the gap. Say six years plainly, then move to scope (data-heavy dashboards, real-time)."
+    },
+    {
+      "group": "role",
+      "requirement": "lead complex initiatives",
+      "status": "unknown",
+      "frame": "Not in the CV. Ask the user first whether they led one end to end; if yes, mark it confirmed by you."
+    },
+    {
+      "group": "technical",
+      "requirement": "Experience building real-time, asynchronous, event-driven user experiences",
+      "status": "match",
+      "episode": "Added real-time updates over WebSocket",
+      "confirmed": false,
+      "frame": "Open with the WebSocket work; add scope only if you can state it."
+    },
+    {
+      "group": "behavioral",
+      "requirement": "Mentor and coach engineers",
+      "status": "partial",
+      "episode": "Reviewed code and mentored two junior developers",
+      "confirmed": false,
+      "frame": "Two juniors, through review; don't call it a lead role."
+    }
+  ],
+  "weak_spots": [
+    {"text": "Years: six against eight-plus. Say it directly, then point to the closest-matching work.",
+     "requirement": "8+ years of professional software engineering experience"},
+    {"text": "Initiative leadership: answer only from what you confirmed.",
+     "requirement": "lead complex initiatives"}
+  ],
+  "brush_up": [
+    {"topic": "Streaming responses and typing states in the UI (the vacancy's core problem)."},
+    {"topic": "React basics – the CV is Angular.", "vacancy": "TypeScript and React or Angular"}
+  ],
+  "money": "Not stated in the vacancy. Give your range from the profile; ask early whether a non-UK contractor is possible.",
+  "ask_them": [
+    {"question": "Can this be done from outside the UK, and as what: employee or contractor?",
+     "why": "Decides if it is possible at all."},
+    {"question": "Who owns frontend architecture decisions today?",
+     "why": "Shows what would be yours to decide."}
+  ],
+  "before_call": ["CV open", "Two episodes ready (WebSocket, mentoring)", "Questions written down",
+                  "Link and time zone checked"],
+  "next_steps": [
+    {"label": "Weak spots only", "command": "Prepare me for the weak spots only: the gaps and the things not in my CV."},
+    {"label": "Analyze another", "command": "Analyze this vacancy against my CV: <paste the text>"}
+  ]
+}

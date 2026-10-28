@@ -70,6 +70,11 @@ LABELS = {
         "next_steps": "What next",
         "profile": "Profile", "profile_unknown": "not stated",
         "report_title": "Job fit report", "page_title": "Document",
+        "prep_title": "Interview prep", "prep_process": "Process and format", "prep_questions": "Likely questions",
+        "prep_frame": "How to answer", "prep_no_episode": "No CV episode yet", "prep_weak": "Weak spots",
+        "prep_brush": "Brush up", "prep_ask": "Your questions for them", "prep_before": "Before the call",
+        "group_role": "Role", "group_technical": "Technical", "group_behavioral": "Behavioral",
+        "group_motivation": "Motivation",
         "theme": "Theme", "light": "Light", "dark": "Dark", "copy": "Copy", "copied": "Copied",
     },
     "uk": {
@@ -95,6 +100,12 @@ LABELS = {
         "next_steps": "Що далі",
         "profile": "Профіль", "profile_unknown": "не вказано",
         "report_title": "Звіт про відповідність", "page_title": "Документ",
+        "prep_title": "Підготовка до співбесіди", "prep_process": "Процес і формат",
+        "prep_questions": "Ймовірні питання", "prep_frame": "Як відповісти",
+        "prep_no_episode": "Епізоду з резюме поки немає", "prep_weak": "Слабкі місця",
+        "prep_brush": "Що підтягнути", "prep_ask": "Ваші питання до них", "prep_before": "Перед дзвінком",
+        "group_role": "Роль", "group_technical": "Технічні", "group_behavioral": "Поведінкові",
+        "group_motivation": "Мотивація",
         "theme": "Тема", "light": "Світла", "dark": "Темна", "copy": "Копіювати", "copied": "Скопійовано",
     },
 }
@@ -487,12 +498,20 @@ def main(argv):
 
 
 def build(args):
+    return build_cli(args, usage=__doc__, kind="analysis JSON", validate=validate, missing=missing_quotes,
+                     render=render, cv_labels=("evidence", "talking point (CV)"), allow_source=True)
+
+
+def build_cli(args, *, usage, kind, validate, missing, render, cv_labels, allow_source):
+    """The command line shared by build_report.py and build_prep.py: read, validate, check quotes, write."""
     paths = {"--source": [], "--cv": [], "--vacancy": []}
     pdf, force = None, False
     pos = []
     i = 0
     while i < len(args):
         a = args[i]
+        if a == "--source" and not allow_source:
+            raise InputError("--source is not supported here; give the CV with --cv and the vacancy with --vacancy")
         if a in paths:
             paths[a].append(flag_value(args, i)); i += 2
         elif a == "--pdf":
@@ -502,11 +521,11 @@ def build(args):
         else:
             pos.append(a); i += 1
     if len(pos) != 2:
-        print(__doc__)
+        print(usage)
         return 2
-    data = read_json(pos[0], "analysis JSON")
+    data = read_json(pos[0], kind)
     if not isinstance(data, dict):
-        raise InputError(f"analysis JSON must be an object with `vacancies`, not a {type(data).__name__}: {pos[0]}")
+        raise InputError(f"{kind} must be a JSON object, not a {type(data).__name__}: {pos[0]}")
     what = {"--source": "source", "--cv": "CV", "--vacancy": "vacancy"}
     texts = {flag: [read_text(s, what[flag]) for s in files] for flag, files in paths.items()}
     errs = validate(data)
@@ -522,11 +541,11 @@ def build(args):
             print("warning: no --cv given, CV quotes were NOT checked")
         elif not paths["--vacancy"]:
             print("warning: no --vacancy given, vacancy quotes were NOT checked")
-        bad = missing_quotes(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
+        bad = missing(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
         if bad:
             print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
             for label, text in bad:
-                doc = "cv" if label in ("evidence", "talking point (CV)") else "vacancy"
+                doc = "cv" if label in cv_labels else "vacancy"
                 why = (" – blank" if blank(text) else
                        f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else "")
                 print(f'  - {label}: "{text}"{why}')

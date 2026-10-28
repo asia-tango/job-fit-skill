@@ -52,7 +52,7 @@ Four full examples (frontend, backend, project manager, designer), each with a f
 
 The analysis is delivered as one styled HTML page instead of a long chat message. It has status marks, colors, light and dark themes, a mobile layout and print styles. The model writes compact JSON (`references/report-schema.md`). `scripts/build_report.py` renders it in about a second, escapes everything, and refuses to render if a quoted line is not in its own document: evidence in the CV (`--cv`), requirements and red flags in the vacancy (`--vacancy`). PDF is optional (`--pdf`, or print the page).
 
-Other long texts (the saved profile, company research, interview prep) go through `scripts/build_page.py`, which turns plain Markdown into the same page. The page holds CV details, so it is published privately or sent as a file.
+Interview prep is JSON too (`references/prep-schema.md`), rendered by `scripts/build_prep.py` with the same quote check: requirements from the vacancy, CV episodes from the CV. Other long texts that make no claims about the CV or the vacancy (the saved profile, the menu, company research) go through `scripts/build_page.py`, which turns plain Markdown into the same page. The page holds CV details, so it is published privately or sent as a file.
 
 ## It doesn't send anything
 

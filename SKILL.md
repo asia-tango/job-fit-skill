@@ -13,14 +13,17 @@ A job-search analyst for any role. It reads the user's CV and a vacancy, and ans
 4. What to ask the recruiter or team.
 5. What to say in the application – as talking points the user turns into a letter themselves.
 
-The output language is the one the user asks for (English if they don't say); set `lang` in the report JSON
-(`en` or `uk`) and pass `--lang` to `build_page.py`, so the page's headings and labels match. Quotes from vacancies
+The output language is the one the user asks for (English if they don't say); set `lang` in the report or prep JSON
+(`en` or `uk`), and pass `--lang` only for pages built with `build_page.py`, so the page's headings and labels match. Quotes from vacancies
 and CV stay in their original language. Ukrainian vacancies are fine: read them as they are, do not translate quotes.
 
 ## Hard rule: pages come from the scripts
 
-Every long output (report, profile, menu, prep, research) is made by running `scripts/build_report.py` or
-`scripts/build_page.py`, and the file that gets published or sent is that script's `.html` output.
+Every long output (report, profile, menu, prep, research) is made by running `scripts/build_report.py`,
+`scripts/build_prep.py` or `scripts/build_page.py`, and the file that gets published or sent is that script's `.html` output.
+- Anything that quotes the CV or the vacancy goes through `build_report.py` (analysis, batch) or `build_prep.py`
+  (interview prep), never `build_page.py`. `build_page.py` is only for pages that make no claims about the CV or
+  the vacancy: the profile, the menu, company research.
 - Never publish Markdown as an artifact. Never write your own HTML or styles. A hand-made page loses the look
   (light theme, mint and coral, copy buttons) and skips the quote check.
 - Before publishing, check the file: `grep -c 'name="generator" content="job-fit"' page.html` must print 1.
@@ -39,7 +42,7 @@ Don't type the menu out in chat. Fixed text, no model work.
 **Setup** – first use, or when the profile is missing. Reads the CV, picks the role family (`references/role-families.md`), asks the core questions plus a few for that family, all as multiple-choice, and ends by giving the user a profile block to keep (see `references/intake.md`, Saved profile). See `references/intake.md`.
 **Single** – one vacancy. The main mode.
 **Batch** – several vacancies at once. See `references/batch-mode.md`.
-**Prep** – the user is invited to an interview for one vacancy. Likely questions tied to the vacancy's requirements, the CV episode that answers each, honest answers for weak spots, what to brush up, money, and questions for them. See `references/interview-prep.md`.
+**Prep** – the user is invited to an interview for one vacancy. Likely questions tied to the vacancy's requirements, the CV episode that answers each, honest answers for weak spots, what to brush up, money, and questions for them. See `references/interview-prep.md`. Written as JSON (`references/prep-schema.md`) and built with `scripts/build_prep.py`.
 
 ## Inputs
 
@@ -117,12 +120,15 @@ not in chat.
    still go through the multiple-choice question tool, not into the page.
 5. Every page ends with "What next": two or three copy buttons with the phrase the user would type next, chosen for
    where they are (after Single: prep for this vacancy, weak spots only, analyze another; after Setup: analyze a vacancy).
-   In the report JSON this is `next_steps: [{label, command}]`; in Markdown, lines `[[cmd: Label | text]]`.
+   In the report and prep JSON this is `next_steps: [{label, command}]`; in Markdown, lines `[[cmd: Label | text]]`.
    The buttons only copy text. The page sends nothing.
-6. Prep mode output and anything else long goes the same way: the saved profile, company research, interview prep, a batch write-up.
-   Write it as Markdown, then `python scripts/build_page.py text.md page.html --source <cv.txt> --source <vacancy.txt>`
-   (same look, same delivery as step 3). Like the report, it refuses to write a page whose quotes are not in the
-   sources; fix the quote, don't use `--force`. A page that quotes nothing (the profile) still builds.
+6. Anything else long goes the same way (same look, same delivery as step 3):
+   - Interview prep: JSON (`references/prep-schema.md`), then
+     `python scripts/build_prep.py prep.json prep.html --cv <cv.txt> --vacancy <vacancy.txt>`.
+     Like the report, it refuses to write a page whose quotes are not in their own document; fix the quote, don't use `--force`.
+   - A batch write-up quotes vacancies, so it is a report: `build_report.py` with `summary` (`references/report-schema.md`).
+   - The saved profile, the menu and company research make no claims about the CV or the vacancy: write Markdown, then
+     `python scripts/build_page.py text.md page.html`. Never put a quote from the CV or the vacancy on such a page.
    Short answers (a sentence or two, a quiz question) stay in chat. Rule of thumb: more than about 15 lines → page.
    The profile is still also given as a plain `profile.md` block or file, because that is what the user attaches next time.
 7. PDF only on request: add `--pdf report.pdf` (needs Playwright), or tell the user to print the page.

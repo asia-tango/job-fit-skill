@@ -107,6 +107,13 @@ def test_every_language_has_every_label():
             assert set(labels[group]) == set(en[group]), (lang, group)
 
 
+def test_prep_labels_are_in_the_shared_label_set():
+    # build_prep.py uses the same LABELS, so test_every_language_has_every_label covers prep too.
+    for key in ("prep_title", "prep_process", "prep_questions", "prep_weak", "prep_brush", "prep_ask",
+                "prep_before", "prep_frame", "group_role", "group_technical", "group_behavioral", "group_motivation"):
+        assert key in br.LABELS["en"] and key in br.LABELS["uk"], key
+
+
 def test_ukrainian_report_labels():
     data, _ = load("frontend")
     d = copy.deepcopy(data)
