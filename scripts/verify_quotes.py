@@ -15,10 +15,12 @@ Exit code 0 = all quotes found, 1 = a quote missing or a quote mark unpaired,
 3 = no quotes in the answer (nothing was checked, so it is not OK).
 """
 import json
+import os
 import re
 import sys
 
-MIN_LEN = 12  # shorter quoted strings (single words, tool names) are not evidence
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from evidence import MIN_LEN, found, normalize  # noqa: E402,F401 – normalize is re-exported
 
 # opening mark -> the marks that close it
 PAIRS = {'"': '"”', "“": "”", "«": "»", "„": "“”"}
@@ -62,15 +64,6 @@ def utf8_output():
             stream.reconfigure(encoding="utf-8")
 
 
-def normalize(text):
-    """Lowercase, drop list bullets, unify dashes, apostrophes and quotes, collapse whitespace."""
-    text = text.lower()
-    text = re.sub(r"^\s*[-*•]\s+", "", text, flags=re.M)
-    text = text.replace("–", "-").replace("—", "-")
-    text = re.sub("[ʼ’‘]", "'", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def _scan(text, offset, quotes, unpaired):
     """Collect (quote, start) and the start of every unpaired opening mark in `text` (no blank lines)."""
     i = 0
@@ -111,9 +104,11 @@ def unpaired_marks(answer):
 
 
 def missing_quotes(answer, sources):
-    """Return the problems in `answer`: unpaired quote marks first, then quotes not in any of `sources`."""
-    haystack = normalize("\n".join(sources))
-    return unpaired_marks(answer) + [q for q in extract_quotes(answer) if normalize(q) not in haystack]
+    """Return the problems in `answer`: unpaired quote marks first, then quotes not in any of `sources`.
+
+    Each source is checked on its own (a quote can't join two files), at word boundaries (evidence.py).
+    """
+    return unpaired_marks(answer) + [q for q in extract_quotes(answer) if not found(q, sources)]
 
 
 def main(argv):

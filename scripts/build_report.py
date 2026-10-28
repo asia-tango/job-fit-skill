@@ -28,8 +28,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_quotes import (  # noqa: E402
-    MIN_LEN, InputError, flag_value, normalize, read_json, read_text, utf8_output)
+from evidence import (  # noqa: E402,F401 – normalize and too_short are re-exported
+    MIN_LEN, blank, check_fields, confirmed_error, normalize, too_short)
+from verify_quotes import InputError, flag_value, read_json, read_text, utf8_output  # noqa: E402
 
 STATUS = {
     "match": ("✅", "Match"),
@@ -225,18 +226,13 @@ def cmd_buttons(items, L=None):
         f'<code>{esc(c)}</code><span class="cp">{copy_}</span></button>' for l, c in items) + "</div>"
 
 
-def blank(value):
-    """True for a quote field that is present (not null) but has no text: "", "   ", or not a string."""
-    return value is not None and (not isinstance(value, str) or not value.strip())
-
-
 def check_item(errs, where, item, quote_keys):
     """Blank quote fields and a non-boolean `confirmed` in one requirement, red flag or talking point."""
     for key in quote_keys:
         if blank(item.get(key)):
             errs.append(f"{where}: `{key}` must be non-blank text")
-    if item.get("confirmed") is not None and not isinstance(item["confirmed"], bool):
-        errs.append(f"{where}: `confirmed` must be true or false, not {item['confirmed']!r}")
+    if confirmed_error(item):
+        errs.append(f"{where}: {confirmed_error(item)}")
 
 
 def validate(data):
@@ -301,30 +297,17 @@ def quote_fields(v):
         yield "talking point (vacancy)", t.get("vacancy"), "vacancy"
 
 
-def too_short(text, doc):
-    """A CV quote shorter than MIN_LEN ("the", "Angular") proves nothing, even if it is in the CV."""
-    return doc == "cv" and len(normalize(text)) < MIN_LEN
-
-
 def missing_quotes(data, sources=None, cv=None, vacancy=None):
-    """Return [(label, text)] for quoted fields not found in their own document, or too short.
+    """Return [(label, text)] for quoted fields not found in their own document, blank, or too short.
 
     `cv` and `vacancy` are lists of texts with a known role: CV quotes are checked only against
     `cv`, vacancy quotes only against `vacancy`. `sources` are texts of unknown role and count for
-    both (the old behavior). A role with no texts at all is not checked for presence, but CV quotes
-    are always checked for length.
+    both (the old behavior). Every text is checked on its own and at word boundaries (evidence.py).
+    A role with no texts at all is not checked for presence, but CV quotes are always checked for length.
     """
     sources = list(sources or [])
-    hay = {"cv": list(cv or []) + sources, "vacancy": list(vacancy or []) + sources}
-    hay = {k: normalize("\n".join(t)) if t else None for k, t in hay.items()}
-    out = []
-    for v in data.get("vacancies", []):
-        for label, text, doc in quote_fields(v):
-            if text is None:
-                continue
-            if blank(text) or too_short(text, doc) or (hay[doc] is not None and normalize(text) not in hay[doc]):
-                out.append((label, text))
-    return out
+    fields = [f for v in data.get("vacancies", []) for f in quote_fields(v)]
+    return check_fields(fields, cv=list(cv or []) + sources, vacancy=list(vacancy or []) + sources)
 
 
 def badge(status, L):
