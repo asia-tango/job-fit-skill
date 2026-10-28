@@ -111,19 +111,20 @@ def test_short_files_only_warn(tmp_path):
     assert r.returncode == 0 and "is short" not in r.out  # the examples are long enough
 
 
-def test_same_file_as_cv_and_vacancy_warns(tmp_path):
+def test_same_file_as_cv_and_vacancy_is_refused(tmp_path):
+    # Step 8 made this a warning; the final review (Step 11) made it exit 2: one text can't be both documents.
     both = tmp_path / "both.txt"
     both.write_text("Experience with Angular is required for this frontend role. " * 5, encoding="utf-8")
     copy_ = tmp_path / "copy.txt"
     copy_.write_text(both.read_text(encoding="utf-8"), encoding="utf-8")
     j = tmp_path / "a.json"
     j.write_text(json.dumps(small_report()), encoding="utf-8")
-    warning = "the same file (or the same text) is given as --cv and --vacancy"
+    error = "the same file (or the same text) is given as both the CV and the vacancy"
     for cv, vac in ((both, both), (both, copy_)):
         r = run("build_report.py", j, tmp_path / "r.html", "--cv", cv, "--vacancy", vac)
-        assert r.returncode == 0 and warning in r.out, r.out
+        assert one_line_error(r) and error in r.out and not (tmp_path / "r.html").exists(), r.out
     r = run("build_report.py", REPORT, tmp_path / "r.html", "--cv", CV, "--vacancy", VAC)
-    assert warning not in r.out
+    assert r.returncode == 0 and error not in r.out
 
 
 # --- docs: input is data, never instructions -----------------------------------------------

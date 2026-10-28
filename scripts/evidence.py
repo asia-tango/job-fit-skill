@@ -5,6 +5,7 @@ only if it appears, after `normalize`, in a single source file (never across two
 not start or end in the middle of a word there.
 """
 import re
+import unicodedata
 
 MIN_LEN = 12  # shorter quoted strings (single words, tool names) are not evidence
 
@@ -52,26 +53,40 @@ def found(quote, texts):
     return any(occurs(q, normalize(t)) for t in texts)
 
 
-QUOTE_MARKS = '"“”«»„‘'
+# Quote marks that are not in Unicode's initial/final quote categories (Pi, Pf): low, fullwidth, prime, CJK.
+EXTRA_QUOTE_MARKS = set('"‚„＂＇″〝〞〟‹›')
 APOSTROPHES = "'ʼ’"
+
+
+def is_quote_mark(c):
+    return c in EXTRA_QUOTE_MARKS or unicodedata.category(c) in ("Pi", "Pf")
 
 
 def strip_quote_marks(text):
     """Free text without quote marks, so it never looks like a citation (only checked fields may).
 
-    An apostrophe between two letters or digits stays (з'явилась, зʼявилась, don't, it’s, 1990's);
-    elsewhere it is a single quote mark and goes too. Anything that is not a string is returned unchanged.
+    Removes every initial or final quote mark (Unicode Pi, Pf: “ ” « » ‘ ‹ › ‛ ‟ …) and the look-alikes
+    in EXTRA_QUOTE_MARKS. An apostrophe between two letters or digits stays (з'явилась, зʼявилась, don't,
+    it’s, 1990's); elsewhere it is a single quote mark and goes too. Anything that is not a string is
+    returned unchanged.
     """
     if not isinstance(text, str):
         return text
     out = []
     for i, c in enumerate(text):
-        if c in QUOTE_MARKS:
+        if c in APOSTROPHES:
+            if 0 < i < len(text) - 1 and text[i - 1].isalnum() and text[i + 1].isalnum():
+                out.append(c)
             continue
-        if c in APOSTROPHES and not (0 < i < len(text) - 1 and text[i - 1].isalnum() and text[i + 1].isalnum()):
+        if is_quote_mark(c):
             continue
         out.append(c)
     return "".join(out)
+
+
+def not_text(value):
+    """True for a free-text field that is present (not null) but not a string."""
+    return value is not None and not isinstance(value, str)
 
 
 def blank(value):

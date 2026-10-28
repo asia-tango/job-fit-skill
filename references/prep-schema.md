@@ -40,10 +40,11 @@ styled page, the same look as the report:
   Put the ❌ and ❓ questions first. `group` is one of the four groups; questions are shown grouped.
 - Every section is optional and no field is required. When the vacancy forbids AI help, a prep with only
   `brush_up` (the topic checklist) is valid.
-- Everything else is free text and is shown without quote marks, so it never looks like a citation (same
-  rule as `report-schema.md`). `next_steps` keep their quote marks: they are phrases to paste, not claims.
+- Everything else is free text, and free text is a string (or null); a number, list or object is an error (exit 1).
+  It is shown without quote marks, so it never looks like a citation (same rule as `report-schema.md`).
+  `next_steps` keep their quote marks: they are phrases to paste, not claims.
 - A quote field that is present (not null) must be non-blank text.
 - Inputs: both `--cv` and `--vacancy` are required, or no page is written (there is no `--source`). An empty file
-  (only whitespace, e.g. a scanned PDF) is refused with exit 2. A file under 200 characters without spaces, or the
-  same file (or the same text) given as `--cv` and `--vacancy`, only prints a warning.
+  (only whitespace, e.g. a scanned PDF), or the same file (or the same text) given as both the CV and the vacancy,
+  is refused with exit 2. A file under 200 characters without spaces only prints a warning.
 - `next_steps` render as copy buttons under "What next". Include two or three.

@@ -5,16 +5,21 @@ references/keywords.local.json
 profile.md
 cv.*
 CV.*
+резюме.*
 *resume*
 *Resume*
 *.pdf
+*.doc
 *.docx
+*.odt
+*.rtf
 
 # Generated pages and the JSON behind them (they quote your CV)
 report*.html
 analysis*.json
 prep*.html
 prep*.json
+profile*.html
 
 # Python
 __pycache__/

@@ -84,4 +84,5 @@ def test_report_check_instructions_point_at_the_builders():
 def test_manual_eval_records_the_real_runs():
     record = section(read("tests", "MANUAL_EVAL.md"), "Record")
     assert "| 2026-10-27 |" in record and "3–4x below" in record and "apply with questions" in record
-    assert "| 2026-10-28 |" in record
+    # The 2026-10-28 review round is recorded as a note naming the commits, not as a run row (Step 11).
+    assert "2026-10-28" in record and "| 2026-10-28 |" not in record and "a11f347" in record

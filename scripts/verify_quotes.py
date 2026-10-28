@@ -6,8 +6,10 @@ the sources is an invented claim, so the answer must not be shown.
 
 Quotes are "…", “…”, «…» and „…“ (also the mixed "…”). A quote may contain a quote of another
 kind (« "…" » and the reverse) and may be wrapped over several lines, but a blank line always ends
-it. An opening quote mark with no closing one fails the check (`unpaired quote mark at line N`):
-it would shift the pairing and hide the quotes after it.
+it. An opening quote mark with no closing one, or a closing mark with no opener (”…”, »…«), fails the
+check (`unpaired quote mark at line N`): it would shift the pairing and hide the quotes after it.
+Every quote is checked, whatever its length. Single quotes ('…', ‘…’) are not checked: ’ is also an
+apostrophe, so they can't be told apart reliably.
 
 Usage: python verify_quotes.py answer.md source1.txt [source2.txt ...]
 Exit code 0 = all quotes found, 1 = a quote missing or a quote mark unpaired,
@@ -24,6 +26,7 @@ from evidence import MIN_LEN, found, normalize  # noqa: E402,F401 – normalize 
 
 # opening mark -> the marks that close it
 PAIRS = {'"': '"”', "“": "”", "«": "»", "„": "“”"}
+CLOSING_ONLY = "”»"  # marks that only close; on their own they are unpaired
 PARAGRAPH_BREAK = re.compile(r"\n[ \t\r]*\n")
 
 
@@ -73,11 +76,16 @@ def utf8_output():
 
 
 def _scan(text, offset, quotes, unpaired):
-    """Collect (quote, start) and the start of every unpaired opening mark in `text` (no blank lines)."""
+    """Collect (quote, start) and the start of every unpaired quote mark in `text` (no blank lines).
+
+    Unpaired is an opening mark with no closing one, or a closing-only mark with no opener (”…”, »…«).
+    """
     i = 0
     while i < len(text):
         closers = PAIRS.get(text[i])
         if closers is None:
+            if text[i] in CLOSING_ONLY:
+                unpaired.append(offset + i)
             i += 1
             continue
         end = next((j for j in range(i + 1, len(text)) if text[j] in closers), None)
@@ -100,13 +108,19 @@ def _find(answer):
     return quotes, unpaired
 
 
-def extract_quotes(answer):
+def all_quotes(answer):
+    """Every non-empty quote in `answer`, whatever its length. This is what the check checks."""
     quotes, _ = _find(answer)
-    return [q.strip() for q, _ in sorted(quotes, key=lambda x: x[1]) if len(q.strip()) >= MIN_LEN]
+    return [q.strip() for q, _ in sorted(quotes, key=lambda x: x[1]) if q.strip()]
+
+
+def extract_quotes(answer):
+    """The quotes long enough to count as evidence (MIN_LEN). Kept for callers that count evidence."""
+    return [q for q in all_quotes(answer) if len(q) >= MIN_LEN]
 
 
 def unpaired_marks(answer):
-    """One message per opening quote mark that has no closing mark before the next blank line."""
+    """One message per unpaired quote mark: an opener with no closer before the next blank line, or a lone closer."""
     _, unpaired = _find(answer)
     return [f"unpaired quote mark at line {answer.count(chr(10), 0, pos) + 1}" for pos in sorted(unpaired)]
 
@@ -114,9 +128,10 @@ def unpaired_marks(answer):
 def missing_quotes(answer, sources):
     """Return the problems in `answer`: unpaired quote marks first, then quotes not in any of `sources`.
 
-    Each source is checked on its own (a quote can't join two files), at word boundaries (evidence.py).
+    Every quote is checked, whatever its length (a short invented "Rust" is still invented). Each source
+    is checked on its own (a quote can't join two files), at word boundaries (evidence.py).
     """
-    return unpaired_marks(answer) + [q for q in extract_quotes(answer) if not found(q, sources)]
+    return unpaired_marks(answer) + [q for q in all_quotes(answer) if not found(q, sources)]
 
 
 def main(argv):
@@ -129,7 +144,7 @@ def main(argv):
     except InputError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    quotes = extract_quotes(answer)
+    quotes = all_quotes(answer)
     unpaired = unpaired_marks(answer)
     missing = missing_quotes(answer, sources)[len(unpaired):]
     if unpaired or missing:

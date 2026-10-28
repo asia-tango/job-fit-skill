@@ -19,14 +19,15 @@ Usage:
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
-An empty file (only whitespace) is refused (exit 2). A file under 200 characters without spaces, or
-the same file / the same text given as --cv and --vacancy, only prints a warning.
+An empty file (only whitespace), or the same file / the same text given as both the CV and the vacancy
+(also the vacancy passed again as --cv), is refused (exit 2). A file under 200 characters without
+spaces only prints a warning. Free-text fields must be strings (or null).
 Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk"
 (case-insensitive, "uk-UA" and "ua" work too). An unknown lang prints a warning and uses English.
 `confirmed` must be true or false; a quote field that is present (not null) must be non-blank text.
 Exit code: 0 ok, 1 invalid analysis or quotes not found, 2 usage or input error (a flag without
-a value, --cv or --vacancy missing, --source mixed with them, a missing, empty or non-UTF-8 file,
-malformed JSON).
+a value, --cv or --vacancy missing, --source mixed with them, the same file as CV and vacancy,
+a missing, empty or non-UTF-8 file, malformed JSON).
 """
 import html
 import os
@@ -34,7 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evidence import (  # noqa: E402,F401 – normalize and too_short are re-exported
-    MIN_LEN, blank, check_fields, confirmed_error, normalize, strip_quote_marks, too_short)
+    MIN_LEN, blank, check_fields, confirmed_error, normalize, not_text, strip_quote_marks, too_short)
 from verify_quotes import InputError, flag_value, read_json, read_source, utf8_output  # noqa: E402
 
 STATUS = {
@@ -292,6 +293,74 @@ def validate(data):
     for r in (data.get("summary") or {}).get("rows", []):
         if r.get("verdict") not in VERDICT:
             errs.append(f"summary row '{r.get('vacancy')}': verdict must be one of {sorted(VERDICT)}")
+    return errs + free_text_errors(data)
+
+
+# Free text is a string. Anything else (a number, a list, an object) would be rendered with str(),
+# and an object renders as {'key': '…'}, quote marks and all, which looks like a citation.
+
+def text_error(errs, where, value):
+    """A free-text field: null means absent; anything else must be a string."""
+    if not_text(value):
+        errs.append(f"{where} must be text, not {type(value).__name__}")
+
+
+def list_of_text_errors(errs, where, values):
+    """A list of free-text items: the list itself is optional, every item must be a string."""
+    if values is None:
+        return
+    if not isinstance(values, list):
+        errs.append(f"{where} must be a list")
+        return
+    for k, x in enumerate(values, 1):
+        if not isinstance(x, str):
+            errs.append(f"{where} {k} must be text, not {type(x).__name__}")
+
+
+def item_text_errors(errs, where, item, keys):
+    if isinstance(item, dict):
+        for key in keys:
+            text_error(errs, f"{where}: `{key}`", item.get(key))
+
+
+def free_text_errors(data):
+    """Every free-text field of the report must be a string (or null)."""
+    errs = []
+    text_error(errs, "`title`", data.get("title"))
+    text_error(errs, "`profile_source`", data.get("profile_source"))
+    for i, v in enumerate(data.get("vacancies") or [], 1):
+        if not isinstance(v, dict):
+            continue
+        p = f"vacancy {i}"
+        text_error(errs, f"{p}: `title`", v.get("title"))
+        if isinstance(v.get("verdict"), dict):
+            text_error(errs, f"{p}: `verdict.text`", v["verdict"].get("text"))
+        list_of_text_errors(errs, f"{p}: would_change", v.get("would_change"))
+        for j, r in enumerate(v.get("requirements") or [], 1):
+            item_text_errors(errs, f"{p}, requirement {j}", r, ("note",))
+        for k, f in enumerate(v.get("cv_fixes") or [], 1):
+            item_text_errors(errs, f"{p}, cv fix {k}", f, ("kind", "text"))
+        for part in ("new", "same", "unknown"):
+            for k, g in enumerate((v.get("growth") or {}).get(part) or [], 1):
+                text_error(errs, f"{p}: growth {part} {k}", g.get("text") if isinstance(g, dict) else g)
+        for k, f in enumerate(v.get("red_flags") or [], 1):
+            item_text_errors(errs, f"{p}, red flag {k}", f, ("text",))
+        text_error(errs, f"{p}: `money`", v.get("money"))
+        for k, q in enumerate(v.get("questions") or [], 1):
+            item_text_errors(errs, f"{p}, question {k}", q, ("group", "question", "why"))
+        for k, t in enumerate(v.get("talking_points") or [], 1):
+            item_text_errors(errs, f"{p}, talking point {k}", t, ("point",))
+    summary = data.get("summary") or {}
+    for i, r in enumerate(summary.get("rows") or [], 1):
+        item_text_errors(errs, f"summary row {i}", r, ("vacancy", "reason", "check"))
+    list_of_text_errors(errs, "summary patterns", summary.get("patterns"))
+    list_of_text_errors(errs, "summary next", summary.get("next"))
+    for k, d in enumerate(data.get("decide") or [], 1):
+        item_text_errors(errs, f"decide {k}", d, ("question", "affects"))
+        if isinstance(d, dict):
+            list_of_text_errors(errs, f"decide {k}: option", d.get("options"))
+    for k, n in enumerate(data.get("next_steps") or [], 1):
+        item_text_errors(errs, f"next_steps {k}", n, ("label", "command"))
     return errs
 
 
@@ -505,20 +574,27 @@ def main(argv):
 SHORT_FILE = 200  # non-whitespace characters; a real vacancy can be this short, so it is only a warning
 
 
+def check_roles(paths, texts):
+    """One file can't be both documents: the same path or the same text as a CV and as a vacancy is refused.
+
+    This also catches the vacancy passed a second time as --cv, which would let vacancy lines pass as CV evidence.
+    """
+    for cv_path, cv_text in zip(paths["--cv"], texts["--cv"]):
+        for vac_path, vac_text in zip(paths["--vacancy"], texts["--vacancy"]):
+            same_path = os.path.normcase(os.path.abspath(cv_path)) == os.path.normcase(os.path.abspath(vac_path))
+            if same_path or cv_text.strip() == vac_text.strip():
+                raise InputError(f"the same file (or the same text) is given as both the CV and the vacancy: "
+                                 f"{cv_path}, {vac_path} – no page was written")
+
+
 def warn_inputs(paths, texts, what):
-    """Mechanical warnings about the inputs: a short file, or the same file given as CV and vacancy."""
+    """A mechanical warning about the inputs: a file so short it may not be the whole text."""
     for flag, files in paths.items():
         for path, text in zip(files, texts[flag]):
             n = len("".join(text.split()))
             if n < SHORT_FILE:
                 print(f"warning: {what[flag]} file is short ({n} characters without spaces) – "
                       f"check it is the whole text: {path}")
-    for cv_path, cv_text in zip(paths["--cv"], texts["--cv"]):
-        for vac_path, vac_text in zip(paths["--vacancy"], texts["--vacancy"]):
-            same_path = os.path.normcase(os.path.abspath(cv_path)) == os.path.normcase(os.path.abspath(vac_path))
-            if same_path or cv_text.strip() == vac_text.strip():
-                print(f"warning: the same file (or the same text) is given as --cv and --vacancy: "
-                      f"{cv_path}, {vac_path} – check which one is the CV")
 
 
 def build(args):
@@ -558,6 +634,7 @@ def build_cli(args, *, usage, kind, validate, missing, render, cv_labels, allow_
         raise InputError(f"{kind} must be a JSON object, not a {type(data).__name__}: {pos[0]}")
     what = {"--source": "source", "--cv": "CV", "--vacancy": "vacancy"}
     texts = {flag: [read_source(s, what[flag]) for s in files] for flag, files in paths.items()}
+    check_roles(paths, texts)
     errs = validate(data)
     if errs:
         print("INVALID:\n  - " + "\n  - ".join(errs))
@@ -576,8 +653,9 @@ def build_cli(args, *, usage, kind, validate, missing, render, cv_labels, allow_
             print(f'  - {label}: "{text}"{why}')
         if not force:
             return 1
+    page = render(data, bad)  # render first: if it fails, no empty or half-written file is left behind
     with open(pos[1], "w", encoding="utf-8") as f:
-        f.write(render(data, bad))
+        f.write(page)
     print(f"wrote {pos[1]}")
     if pdf:
         print(f"wrote {pdf}" if to_pdf(pos[1], pdf) else "PDF skipped: Playwright is not installed; open the HTML and print to PDF")

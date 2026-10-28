@@ -68,8 +68,11 @@ def test_no_real_cv_or_profile_is_tracked():
 
 def test_readme_shows_the_run_record():
     readme = read("README.md")
-    assert "## Recorded runs" in readme and "| 2026-10-27 |" in readme and "| 2026-10-28 |" in readme
+    assert "## Recorded runs" in readme and "| 2026-10-27 |" in readme
     manual = read("tests", "MANUAL_EVAL.md")
-    for date in ("| 2026-10-27 |", "| 2026-10-28 |"):
-        row = next(ln for ln in manual.splitlines() if ln.startswith(date))
-        assert row in readme, f"README and MANUAL_EVAL disagree on {date}"
+    # Every run row in MANUAL_EVAL appears unchanged in the README. The 2026-10-28 review round is a note, not a row
+    # (it was not a run; see test_final_review.py::test_review_round_is_not_presented_as_a_run).
+    rows = [ln for ln in manual.splitlines() if re.match(r"\| \d{4}-\d{2}-\d{2} \|", ln)]
+    assert rows
+    for row in rows:
+        assert row in readme, f"README and MANUAL_EVAL disagree: {row[:40]}"

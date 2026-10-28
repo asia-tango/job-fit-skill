@@ -16,19 +16,22 @@ Usage:
 --force    write the page even if some quotes were not found (they are marked on the page).
 Both --cv and --vacancy are required: without them, or with only one, no page is written (exit 2, also
 with --force). There is no --source: a prep always names which file is the CV and which is the vacancy.
-An empty file (only whitespace) is refused (exit 2). A file under 200 characters without spaces, or
-the same file / the same text given as --cv and --vacancy, only prints a warning.
+An empty file (only whitespace), or the same file / the same text given as both the CV and the vacancy
+(also the vacancy passed again as --cv), is refused (exit 2). A file under 200 characters without
+spaces only prints a warning. Free-text fields must be strings (or null).
 Labels follow "lang" in the JSON: "en" (default) or "uk" (case-insensitive, "uk-UA" and "ua" work too).
 Every section is optional; a prep with only `brush_up` (the topic checklist) is valid.
 Exit code: 0 ok, 1 invalid prep or quotes not found, 2 usage or input error (a flag without
-a value, --cv or --vacancy missing, --source, a missing, empty or non-UTF-8 file, malformed JSON).
+a value, --cv or --vacancy missing, --source, the same file as CV and vacancy, a missing, empty or
+non-UTF-8 file, malformed JSON).
 """
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_report import (  # noqa: E402 – labels live in build_report.LABELS
-    CSS, STATUS, badge, build_cli, cmd_buttons, copy_js, esc, free, labels, li, theme_button)
+    CSS, STATUS, badge, build_cli, cmd_buttons, copy_js, esc, free, item_text_errors, labels, li,
+    list_of_text_errors, text_error, theme_button)
 from evidence import blank, check_fields, confirmed_error, strip_quote_marks  # noqa: E402
 from verify_quotes import InputError, utf8_output  # noqa: E402
 
@@ -74,6 +77,20 @@ def validate(data):
     for k, n in enumerate(items(data, "next_steps"), 1):
         if isinstance(n, dict) and not (n.get("label") and n.get("command")):
             errs.append(f"next_steps {k}: needs `label` and `command`")
+    return errs + free_text_errors(data)
+
+
+def free_text_errors(data):
+    """Every free-text field of the prep must be a string (or null); same rule as the report."""
+    errs = []
+    for key in ("title", "profile_source", "process", "money"):
+        text_error(errs, f"`{key}`", data.get(key))
+    for key, fields in (("questions", ("group", "frame")), ("weak_spots", ("text",)), ("brush_up", ("topic",)),
+                        ("ask_them", ("question", "why")), ("next_steps", ("label", "command"))):
+        for k, it in enumerate(items(data, key), 1):
+            item_text_errors(errs, f"{key[:-1] if key == 'questions' else key} {k}", it, fields)
+    if isinstance(data.get("before_call"), list):  # a non-list is already reported above
+        list_of_text_errors(errs, "before_call", data["before_call"])
     return errs
 
 

@@ -123,7 +123,7 @@ def test_answer_without_quotes_is_not_ok(tmp_path):
     ans.write_text("Great fit, apply.", encoding="utf-8")
     src = tmp_path / "s.txt"
     src.write_text(SRC[0], encoding="utf-8")
-    assert run("verify_quotes.py", ans, src).returncode != 0
+    assert run("verify_quotes.py", ans, src).returncode == 3  # no quotes: nothing was checked
 
 
 # --- build_page.py: prep pages are quote-checked too ------------------------------
