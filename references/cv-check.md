@@ -8,7 +8,9 @@ For each Must and each important Nice requirement in the vacancy, one row:
 |---|---|---|
 
 Rules:
-- Both quotes are copied verbatim. They must pass `scripts/verify_quotes.py`.
+- Both quotes are copied verbatim, each from its own document: the requirement from the vacancy, the evidence
+  from the CV. `scripts/build_report.py` checks them when it builds the page (`--cv <cv> --vacancy <vacancy>`)
+  and writes no page if one is not there. (`verify_quotes.py` is only for the chat fallback, when scripts can't run.)
 - Short quotes are better than long ones (a phrase, not a paragraph).
 - Don't count the same CV line as proof for unrelated requirements.
 - If there is no evidence, write `—` in the evidence column.

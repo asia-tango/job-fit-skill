@@ -6,23 +6,37 @@ this script turns it into a readable page with status marks, colors, a light pag
 and print styles. Fast, and the same look every time. Everything is escaped.
 
 Usage:
-  python build_report.py analysis.json report.html --source cv.txt --source vacancy.txt
-  python build_report.py analysis.json report.html --source cv.txt --pdf report.pdf
+  python build_report.py analysis.json report.html --cv cv.txt --vacancy vacancy.txt
+  python build_report.py analysis.json report.html --cv cv.txt --vacancy vacancy.txt --pdf report.pdf
 
---source   a document the quotes must come from (CV, vacancy). Repeat it. Without any
-           --source the quotes are NOT checked and a warning is printed.
+--cv       the CV. `evidence` and talking point `cv` must be quoted from it. Repeatable.
+--vacancy  the vacancy. `requirement`, red flag `quote` and talking point `vacancy` must be
+           quoted from it. Repeatable.
+           Both --cv and --vacancy are required: without them, or with only one, no page is written
+           (exit 2, also with --force).
+--source   legacy form: a document of unknown role, counts for both. Works alone, with a warning;
+           it can't be mixed with --cv / --vacancy (exit 2).
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
-Exit code: 0 ok, 1 invalid input or quotes not found, 2 usage.
+An empty file (only whitespace), or the same file / the same text given as both the CV and the vacancy
+(also the vacancy passed again as --cv), is refused (exit 2). A file under 200 characters without
+spaces only prints a warning. Free-text fields must be strings (or null).
+Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk"
+(case-insensitive, "uk-UA" and "ua" work too). An unknown lang prints a warning and uses English.
+`confirmed` must be true or false; a quote field that is present (not null) must be non-blank text.
+Exit code: 0 ok, 1 invalid analysis or quotes not found, 2 usage or input error (a flag without
+a value, --cv or --vacancy missing, --source mixed with them, the same file as CV and vacancy,
+a missing, empty or non-UTF-8 file, malformed JSON).
 """
 import html
-import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_quotes import normalize  # noqa: E402
+from evidence import (  # noqa: E402,F401 – normalize and too_short are re-exported
+    MIN_LEN, blank, check_fields, confirmed_error, normalize, not_text, strip_quote_marks, too_short)
+from verify_quotes import InputError, flag_value, read_json, read_source, utf8_output  # noqa: E402
 
 STATUS = {
     "match": ("✅", "Match"),
@@ -37,6 +51,91 @@ VERDICT = {
     "skip": ("❌", "Skip"),
 }
 TAGS = {"stated", "guess"}
+
+# Every fixed string on the page, per language. `lang` in the JSON picks one; English is the default.
+LABELS = {
+    "en": {
+        "html_lang": "en",
+        "status": {k: v[1] for k, v in STATUS.items()},
+        "verdict": {k: v[1] for k, v in VERDICT.items()},
+        "would_change": "What would change the verdict",
+        "requirements": "Requirements vs CV",
+        "col_requirement": "Requirement", "col_evidence": "Evidence", "col_status": "Status",
+        "confirmed": "confirmed by you",
+        "cv_fixes": "Fix in the CV",
+        "growth": "Growth", "growth_new": "New for you", "growth_same": "Same as now", "growth_unknown": "Can’t tell",
+        "red_flags": "Red flags",
+        "money": "Money and format",
+        "questions": "Questions to ask", "questions_general": "General",
+        "talking_points": "Talking points for the application", "tp_cv": "CV", "tp_vacancy": "Vacancy",
+        "letter": "Application draft", "letter_note": "Draft – check every claim before sending.",
+        "letter_copy": "Copy the draft",
+        "summary": "Summary", "col_n": "#", "col_vacancy": "Vacancy", "col_verdict": "Verdict",
+        "col_reason": "Main reason", "col_check": "Check first", "patterns": "Patterns", "next": "Next",
+        "decide": "Questions that decide this", "affects": "Affects",
+        "next_steps": "What next",
+        "profile": "Profile", "profile_unknown": "not stated",
+        "report_title": "Job fit report", "page_title": "Document",
+        "prep_title": "Interview prep", "prep_process": "Process and format", "prep_questions": "Likely questions",
+        "prep_frame": "How to answer", "prep_no_episode": "No CV episode yet", "prep_weak": "Weak spots",
+        "prep_brush": "Brush up", "prep_ask": "Your questions for them", "prep_before": "Before the call",
+        "group_role": "Role", "group_technical": "Technical", "group_behavioral": "Behavioral",
+        "group_motivation": "Motivation",
+        "theme": "Theme", "light": "Light", "dark": "Dark", "copy": "Copy", "copied": "Copied",
+    },
+    "uk": {
+        "html_lang": "uk",
+        "status": {"match": "Збіг", "partial": "Частково", "unknown": "Немає в резюме", "gap": "Прогалина"},
+        "verdict": {"apply": "Подаватися", "questions": "Подаватися з питаннями",
+                    "check": "Спершу перевірити", "skip": "Пропустити"},
+        "would_change": "Що змінило б вердикт",
+        "requirements": "Вимоги і резюме",
+        "col_requirement": "Вимога", "col_evidence": "Доказ", "col_status": "Статус",
+        "confirmed": "підтверджено вами",
+        "cv_fixes": "Що виправити в резюме",
+        "growth": "Зростання", "growth_new": "Нове для вас", "growth_same": "Як зараз", "growth_unknown": "Не зрозуміло",
+        "red_flags": "Тривожні сигнали",
+        "money": "Гроші й формат",
+        "questions": "Що запитати", "questions_general": "Загальні",
+        "talking_points": "Тези для відгуку", "tp_cv": "Резюме", "tp_vacancy": "Вакансія",
+        "letter": "Чернетка відгуку", "letter_note": "Чернетка – перевірте кожне твердження перед надсиланням.",
+        "letter_copy": "Скопіювати чернетку",
+        "summary": "Підсумок", "col_n": "#", "col_vacancy": "Вакансія", "col_verdict": "Вердикт",
+        "col_reason": "Головна причина", "col_check": "Спершу перевірити", "patterns": "Закономірності", "next": "Далі",
+        "decide": "Питання, від яких залежить рішення", "affects": "Впливає на",
+        "next_steps": "Що далі",
+        "profile": "Профіль", "profile_unknown": "не вказано",
+        "report_title": "Звіт про відповідність", "page_title": "Документ",
+        "prep_title": "Підготовка до співбесіди", "prep_process": "Процес і формат",
+        "prep_questions": "Ймовірні питання", "prep_frame": "Як відповісти",
+        "prep_no_episode": "Епізоду з резюме поки немає", "prep_weak": "Слабкі місця",
+        "prep_brush": "Що підтягнути", "prep_ask": "Ваші питання до них", "prep_before": "Перед дзвінком",
+        "group_role": "Роль", "group_technical": "Технічні", "group_behavioral": "Поведінкові",
+        "group_motivation": "Мотивація",
+        "theme": "Тема", "light": "Світла", "dark": "Темна", "copy": "Копіювати", "copied": "Скопійовано",
+    },
+}
+
+
+LANG_ALIASES = {"ua": "uk"}
+
+
+def lang_key(lang):
+    """`UK`, ` uk-UA `, `ua` -> "uk": case-insensitive, the part before "-", plus aliases."""
+    if not isinstance(lang, str):
+        return None
+    key = lang.strip().lower().split("-")[0]
+    return LANG_ALIASES.get(key, key)
+
+
+def labels(lang):
+    """The label dict for `lang`; English for a missing or unknown language (the CLI warns about it)."""
+    return LABELS.get(lang_key(lang), LABELS["en"])
+
+
+def warn_lang(lang):
+    if lang_key(lang) not in LABELS:
+        print(f"warning: unknown lang {lang!r}, using English labels (built in: {', '.join(LABELS)})")
 
 CSS = """
 :root{color-scheme:light;--bg:#f7f7f5;--card:#ffffff;--text:#1d1d1b;--muted:#5f5e5a;--line:#e3e2dc;
@@ -98,41 +197,65 @@ nav ul{list-style:none;padding:0}
  .verdict{border-left-width:6px}}
 """
 
-THEME_BUTTON = (
-    '<div id="tt" role="group" aria-label="Theme">'
-    '<button type="button" data-t="light" class="on">Light</button>'
-    '<button type="button" data-t="dark">Dark</button></div>'
-    "<script>document.getElementById('tt').addEventListener('click',function(e){"
-    "var b=e.target.closest('button');if(!b)return;"
-    "document.documentElement.setAttribute('data-jf',b.dataset.t);"
-    "this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})});</script>"
-)
-
-COPY_JS = (
-    "<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-cmd]');if(!b)return;"
-    "var t=b.getAttribute('data-cmd'),s=b.querySelector('.cp');"
-    "function done(){b.classList.add('ok');if(s)s.textContent='Copied';"
-    "setTimeout(function(){b.classList.remove('ok');if(s)s.textContent='Copy'},1500)}"
-    "function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();"
-    "try{document.execCommand('copy')}catch(x){}a.remove();done()}"
-    "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else{fb()}"
-    "});</script>"
-)
-
-
 def esc(x):
     return html.escape("" if x is None else str(x), quote=True)
 
 
-def cmd_buttons(items):
+def theme_button(L=None):
+    L = L or LABELS["en"]
+    return (
+        f'<div id="tt" role="group" aria-label="{esc(L["theme"])}">'
+        f'<button type="button" data-t="light" class="on">{esc(L["light"])}</button>'
+        f'<button type="button" data-t="dark">{esc(L["dark"])}</button></div>'
+        "<script>document.getElementById('tt').addEventListener('click',function(e){"
+        "var b=e.target.closest('button');if(!b)return;"
+        "document.documentElement.setAttribute('data-jf',b.dataset.t);"
+        "this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})});</script>"
+    )
+
+
+def copy_js(L=None):
+    L = L or LABELS["en"]
+    def js(s):  # a single-quoted JS string literal
+        return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("<", "\\x3c") + "'"
+    copied, copy_ = js(L["copied"]), js(L["copy"])
+    return (
+        "<script>document.addEventListener('click',function(e){var b=e.target.closest('[data-cmd]');if(!b)return;"
+        "var t=b.getAttribute('data-cmd'),s=b.querySelector('.cp');"
+        f"function done(){{b.classList.add('ok');if(s)s.textContent={copied};"
+        f"setTimeout(function(){{b.classList.remove('ok');if(s)s.textContent={copy_}}},1500)}}"
+        "function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();"
+        "try{document.execCommand('copy')}catch(x){}a.remove();done()}"
+        "if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,fb)}else{fb()}"
+        "});</script>"
+    )
+
+
+THEME_BUTTON = theme_button()
+COPY_JS = copy_js()
+
+
+def cmd_buttons(items, L=None):
     """Copy-to-clipboard buttons: items = [(label, command)]. The page never sends anything itself."""
+    copy_ = esc((L or LABELS["en"])["copy"])
     return '<div class="cmds">' + "".join(
         f'<button type="button" class="cmd" data-cmd="{esc(c)}"><span class="cl">{esc(l)}</span>'
-        f'<code>{esc(c)}</code><span class="cp">Copy</span></button>' for l, c in items) + "</div>"
+        f'<code>{esc(c)}</code><span class="cp">{copy_}</span></button>' for l, c in items) + "</div>"
+
+
+def check_item(errs, where, item, quote_keys):
+    """Blank quote fields and a non-boolean `confirmed` in one requirement, red flag or talking point."""
+    for key in quote_keys:
+        if blank(item.get(key)):
+            errs.append(f"{where}: `{key}` must be non-blank text")
+    if confirmed_error(item):
+        errs.append(f"{where}: {confirmed_error(item)}")
 
 
 def validate(data):
     """Return a list of problems with the analysis JSON. Empty list = valid."""
+    if not isinstance(data, dict):
+        return ["the analysis must be a JSON object with `vacancies`"]
     errs = []
     vacs = data.get("vacancies")
     if not isinstance(vacs, list) or not vacs:
@@ -149,10 +272,15 @@ def validate(data):
         for j, r in enumerate(v.get("requirements", []), 1):
             if r.get("status") not in STATUS:
                 errs.append(f"{p}, requirement {j}: status must be one of {sorted(STATUS)}")
-            if not r.get("requirement"):
+            check_item(errs, f"{p}, requirement {j}", r, ("requirement", "evidence"))
+            if r.get("requirement") is None:
                 errs.append(f"{p}, requirement {j}: empty requirement")
-            if r.get("status") == "match" and not r.get("evidence"):
+            if r.get("status") == "match" and (r.get("evidence") is None or blank(r.get("evidence"))):
                 errs.append(f"{p}, requirement {j}: a match needs evidence")
+        for k, f in enumerate(v.get("red_flags", []), 1):
+            check_item(errs, f"{p}, red flag {k}", f, ("quote",))
+        for k, t in enumerate(v.get("talking_points", []), 1):
+            check_item(errs, f"{p}, talking point {k}", t, ("cv", "vacancy"))
         if "letter_draft" in v and not isinstance(v["letter_draft"], str):
             errs.append(f"{p}: `letter_draft` must be a string")
         for part in ("new", "same", "unknown"):
@@ -165,37 +293,115 @@ def validate(data):
     for r in (data.get("summary") or {}).get("rows", []):
         if r.get("verdict") not in VERDICT:
             errs.append(f"summary row '{r.get('vacancy')}': verdict must be one of {sorted(VERDICT)}")
+    return errs + free_text_errors(data)
+
+
+# Free text is a string. Anything else (a number, a list, an object) would be rendered with str(),
+# and an object renders as {'key': '…'}, quote marks and all, which looks like a citation.
+
+def text_error(errs, where, value):
+    """A free-text field: null means absent; anything else must be a string."""
+    if not_text(value):
+        errs.append(f"{where} must be text, not {type(value).__name__}")
+
+
+def list_of_text_errors(errs, where, values):
+    """A list of free-text items: the list itself is optional, every item must be a string."""
+    if values is None:
+        return
+    if not isinstance(values, list):
+        errs.append(f"{where} must be a list")
+        return
+    for k, x in enumerate(values, 1):
+        if not isinstance(x, str):
+            errs.append(f"{where} {k} must be text, not {type(x).__name__}")
+
+
+def item_text_errors(errs, where, item, keys):
+    if isinstance(item, dict):
+        for key in keys:
+            text_error(errs, f"{where}: `{key}`", item.get(key))
+
+
+def free_text_errors(data):
+    """Every free-text field of the report must be a string (or null)."""
+    errs = []
+    text_error(errs, "`title`", data.get("title"))
+    text_error(errs, "`profile_source`", data.get("profile_source"))
+    for i, v in enumerate(data.get("vacancies") or [], 1):
+        if not isinstance(v, dict):
+            continue
+        p = f"vacancy {i}"
+        text_error(errs, f"{p}: `title`", v.get("title"))
+        if isinstance(v.get("verdict"), dict):
+            text_error(errs, f"{p}: `verdict.text`", v["verdict"].get("text"))
+        list_of_text_errors(errs, f"{p}: would_change", v.get("would_change"))
+        for j, r in enumerate(v.get("requirements") or [], 1):
+            item_text_errors(errs, f"{p}, requirement {j}", r, ("note",))
+        for k, f in enumerate(v.get("cv_fixes") or [], 1):
+            item_text_errors(errs, f"{p}, cv fix {k}", f, ("kind", "text"))
+        for part in ("new", "same", "unknown"):
+            for k, g in enumerate((v.get("growth") or {}).get(part) or [], 1):
+                text_error(errs, f"{p}: growth {part} {k}", g.get("text") if isinstance(g, dict) else g)
+        for k, f in enumerate(v.get("red_flags") or [], 1):
+            item_text_errors(errs, f"{p}, red flag {k}", f, ("text",))
+        text_error(errs, f"{p}: `money`", v.get("money"))
+        for k, q in enumerate(v.get("questions") or [], 1):
+            item_text_errors(errs, f"{p}, question {k}", q, ("group", "question", "why"))
+        for k, t in enumerate(v.get("talking_points") or [], 1):
+            item_text_errors(errs, f"{p}, talking point {k}", t, ("point",))
+    summary = data.get("summary") or {}
+    for i, r in enumerate(summary.get("rows") or [], 1):
+        item_text_errors(errs, f"summary row {i}", r, ("vacancy", "reason", "check"))
+    list_of_text_errors(errs, "summary patterns", summary.get("patterns"))
+    list_of_text_errors(errs, "summary next", summary.get("next"))
+    for k, d in enumerate(data.get("decide") or [], 1):
+        item_text_errors(errs, f"decide {k}", d, ("question", "affects"))
+        if isinstance(d, dict):
+            list_of_text_errors(errs, f"decide {k}: option", d.get("options"))
+    for k, n in enumerate(data.get("next_steps") or [], 1):
+        item_text_errors(errs, f"next_steps {k}", n, ("label", "command"))
     return errs
 
 
 def quote_fields(v):
-    """Yield (label, text) for every field that must be copied verbatim from a source."""
+    """Yield (label, text, doc) for every field that must be copied verbatim from a source.
+
+    `doc` is the document the quote must come from: "cv" or "vacancy".
+    """
+    # Only a real `true` skips the check: "false" (a string) is truthy in Python.
     for r in v.get("requirements", []):
-        yield "requirement", r.get("requirement")
-        if not r.get("confirmed"):
-            yield "evidence", r.get("evidence")
+        yield "requirement", r.get("requirement"), "vacancy"
+        if r.get("confirmed") is not True:
+            yield "evidence", r.get("evidence"), "cv"
     for f in v.get("red_flags", []):
-        yield "red flag quote", f.get("quote")
+        yield "red flag quote", f.get("quote"), "vacancy"
     for t in v.get("talking_points", []):
-        if not t.get("confirmed"):
-            yield "talking point (CV)", t.get("cv")
-        yield "talking point (vacancy)", t.get("vacancy")
+        if t.get("confirmed") is not True:
+            yield "talking point (CV)", t.get("cv"), "cv"
+        yield "talking point (vacancy)", t.get("vacancy"), "vacancy"
 
 
-def missing_quotes(data, sources):
-    """Return [(label, text)] for quoted fields not found in any source."""
-    haystack = normalize("\n".join(sources))
-    out = []
-    for v in data.get("vacancies", []):
-        for label, text in quote_fields(v):
-            if text and normalize(text) not in haystack:
-                out.append((label, text))
-    return out
+def missing_quotes(data, sources=None, cv=None, vacancy=None):
+    """Return [(label, text)] for quoted fields not found in their own document, blank, or too short.
+
+    `cv` and `vacancy` are lists of texts with a known role: CV quotes are checked only against
+    `cv`, vacancy quotes only against `vacancy`. `sources` are texts of unknown role and count for
+    both (the old behavior). Every text is checked on its own and at word boundaries (evidence.py).
+    A role with no texts at all is not checked for presence, but CV quotes are always checked for length.
+    """
+    sources = list(sources or [])
+    fields = [f for v in data.get("vacancies", []) for f in quote_fields(v)]
+    return check_fields(fields, cv=list(cv or []) + sources, vacancy=list(vacancy or []) + sources)
 
 
-def badge(status):
-    mark, label = STATUS[status]
-    return f'<span class="badge {status}">{mark} {label}</span>'
+def free(text):
+    """Escape a free-text field for the page, without quote marks: only checked quote fields look like quotes."""
+    return esc(strip_quote_marks(text))
+
+
+def badge(status, L):
+    return f'<span class="badge {status}">{STATUS[status][0]} {esc(L["status"][status])}</span>'
 
 
 def li(items):
@@ -204,127 +410,143 @@ def li(items):
 
 def growth_item(g):
     if isinstance(g, dict):
-        return esc(g.get("text")) + f'<span class="tag">{esc(g.get("tag"))}</span>'
-    return esc(g)
+        return free(g.get("text")) + f'<span class="tag">{esc(g.get("tag"))}</span>'
+    return free(g)
 
 
-def render_vacancy(v, idx, bad, single=False):
+def render_vacancy(v, idx, bad, single=False, L=None):
+    L = L or LABELS["en"]
     o = []
-    vm, vl = VERDICT[v["verdict"]["mark"]]
-    head = "" if single else f'<h2>{esc(v["title"])}</h2>'
+    mark = v["verdict"]["mark"]
+    vm, vl = VERDICT[mark][0], esc(L["verdict"][mark])
+    head = "" if single else f'<h2>{free(v["title"])}</h2>'
     o.append(f'<section id="v{idx}">{head}')
-    o.append(f'<div class="card verdict {esc(v["verdict"]["mark"])}"><p class="vlabel">{vm} {vl}</p>'
-             f'<p style="margin:0">{esc(v["verdict"]["text"])}</p></div>')
+    o.append(f'<div class="card verdict {esc(mark)}"><p class="vlabel">{vm} {vl}</p>'
+             f'<p style="margin:0">{free(v["verdict"]["text"])}</p></div>')
     if v.get("would_change"):
-        o.append('<h3>What would change the verdict</h3>' + li([esc(x) for x in v["would_change"]]))
+        o.append(f'<h3>{esc(L["would_change"])}</h3>' + li([free(x) for x in v["would_change"]]))
     reqs = v.get("requirements", [])
     if reqs:
-        o.append('<h2>Requirements vs CV</h2><div class="card"><table><thead><tr><th>Requirement</th>'
-                 '<th>Evidence</th><th>Status</th></tr></thead><tbody>')
+        c_req, c_ev, c_st = esc(L["col_requirement"]), esc(L["col_evidence"]), esc(L["col_status"])
+        o.append(f'<h2>{esc(L["requirements"])}</h2><div class="card"><table><thead><tr><th>{c_req}</th>'
+                 f'<th>{c_ev}</th><th>{c_st}</th></tr></thead><tbody>')
         for r in reqs:
             req_cls = ' class="missing"' if ("requirement", r.get("requirement")) in bad else ""
             ev = r.get("evidence")
             ev_cls = ' class="missing"' if ("evidence", ev) in bad else ""
-            ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not r.get("confirmed") else (
-                esc(ev) if ev else '<span class="ev">—</span>')
-            note = f'<span class="note">{esc(r["note"])}</span>' if r.get("note") else ""
-            conf = '<span class="tag">confirmed by you</span>' if r.get("confirmed") else ""
-            o.append(f'<tr><td data-l="Requirement"><q{req_cls}>{esc(r["requirement"])}</q></td>'
-                     f'<td data-l="Evidence">{ev_html}</td>'
-                     f'<td data-l="Status">{badge(r["status"])}{conf}{note}</td></tr>')
+            confirmed = r.get("confirmed") is True
+            ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not confirmed else (
+                free(ev) if ev else '<span class="ev">—</span>')
+            note = f'<span class="note">{free(r["note"])}</span>' if r.get("note") else ""
+            conf = f'<span class="tag">{esc(L["confirmed"])}</span>' if confirmed else ""
+            o.append(f'<tr><td data-l="{c_req}"><q{req_cls}>{esc(r["requirement"])}</q></td>'
+                     f'<td data-l="{c_ev}">{ev_html}</td>'
+                     f'<td data-l="{c_st}">{badge(r["status"], L)}{conf}{note}</td></tr>')
         o.append('</tbody></table></div>')
     if v.get("cv_fixes"):
-        o.append('<h2>Fix in the CV</h2><div class="card">' + li(
-            [f'<span class="kind">{esc(f.get("kind"))}.</span> {esc(f.get("text"))}' for f in v["cv_fixes"]]) + '</div>')
+        o.append(f'<h2>{esc(L["cv_fixes"])}</h2><div class="card">' + li(
+            [f'<span class="kind">{free(f.get("kind"))}.</span> {free(f.get("text"))}' for f in v["cv_fixes"]]) + '</div>')
     g = v.get("growth")
     if g:
-        o.append('<h2>Growth</h2><div class="cols">')
-        for key, title in (("new", "New for you"), ("same", "Same as now"), ("unknown", "Can’t tell")):
-            o.append(f'<div class="card"><h3 style="margin-top:0">{title}</h3>'
+        o.append(f'<h2>{esc(L["growth"])}</h2><div class="cols">')
+        for key in ("new", "same", "unknown"):
+            o.append(f'<div class="card"><h3 style="margin-top:0">{esc(L["growth_" + key])}</h3>'
                      + li([growth_item(x) for x in g.get(key, [])]) + '</div>')
         o.append('</div>')
     if v.get("red_flags"):
-        o.append('<h2>Red flags</h2>')
+        o.append(f'<h2>{esc(L["red_flags"])}</h2>')
         for f in v["red_flags"]:
             cls = ' class="missing"' if ("red flag quote", f.get("quote")) in bad else ""
             o.append(f'<div class="card flag"><q{cls}>{esc(f.get("quote"))}</q>'
-                     f'<span class="note">{esc(f.get("text"))}</span></div>')
+                     f'<span class="note">{free(f.get("text"))}</span></div>')
     if v.get("money"):
-        o.append(f'<h2>Money and format</h2><div class="card">{esc(v["money"])}</div>')
+        o.append(f'<h2>{esc(L["money"])}</h2><div class="card">{free(v["money"])}</div>')
     if v.get("questions"):
-        o.append('<h2>Questions to ask</h2><div class="card">')
+        o.append(f'<h2>{esc(L["questions"])}</h2><div class="card">')
         groups = {}
         for q in v["questions"]:
-            groups.setdefault(q.get("group", "General"), []).append(q)
+            groups.setdefault(q.get("group", L["questions_general"]), []).append(q)
         for name, qs in groups.items():
-            o.append(f'<h3 style="margin-top:0">{esc(name)}</h3>' + li(
-                [esc(q["question"]) + (f'<span class="note">{esc(q["why"])}</span>' if q.get("why") else "")
+            o.append(f'<h3 style="margin-top:0">{free(name)}</h3>' + li(
+                [free(q["question"]) + (f'<span class="note">{free(q["why"])}</span>' if q.get("why") else "")
                  for q in qs]))
         o.append('</div>')
     if v.get("talking_points"):
-        o.append('<h2>Talking points for the application</h2><div class="card"><ol style="padding-left:1.2rem;margin:0">')
+        o.append(f'<h2>{esc(L["talking_points"])}</h2><div class="card"><ol style="padding-left:1.2rem;margin:0">')
+        tp_cv, tp_vac = esc(L["tp_cv"]), esc(L["tp_vacancy"])
         for t in v["talking_points"]:
             src = ""
             if t.get("cv"):
-                src += f'CV: <q>{esc(t["cv"])}</q>' if not t.get("confirmed") else f'CV: {esc(t["cv"])} <span class="tag">confirmed by you</span>'
+                src += (f'{tp_cv}: <q>{esc(t["cv"])}</q>' if t.get("confirmed") is not True
+                        else f'{tp_cv}: {free(t["cv"])} <span class="tag">{esc(L["confirmed"])}</span>')
             if t.get("vacancy"):
-                src += f'<br>Vacancy: <q>{esc(t["vacancy"])}</q>'
-            o.append(f'<li style="margin:10px 0"><strong>{esc(t["point"])}</strong>'
+                src += f'<br>{tp_vac}: <q>{esc(t["vacancy"])}</q>'
+            o.append(f'<li style="margin:10px 0"><strong>{free(t["point"])}</strong>'
                      f'<span class="note">{src}</span></li>')
         o.append('</ol></div>')
     if v.get("letter_draft"):
-        o.append('<h2>Application draft</h2><div class="card">'
-                 '<p class="note" style="margin-top:0">Draft – check every claim before sending.</p>'
+        # Not stripped: the draft is the user's own text to send («Нова Пошта» is correct there).
+        o.append(f'<h2>{esc(L["letter"])}</h2><div class="card">'
+                 f'<p class="note" style="margin-top:0">{esc(L["letter_note"])}</p>'
                  f'<div style="white-space:pre-wrap;line-height:1.55">{esc(v["letter_draft"])}</div>'
-                 + cmd_buttons([("Copy the draft", v["letter_draft"])]) + '</div>')
+                 + cmd_buttons([(L["letter_copy"], v["letter_draft"])], L) + '</div>')
     o.append('</section>')
     return "\n".join(o)
 
 
-def render_summary(summary, vacs):
-    o = ['<h2>Summary</h2><div class="card"><table><thead><tr><th>#</th><th>Vacancy</th><th>Verdict</th>'
-         '<th>Main reason</th><th>Check first</th></tr></thead><tbody>']
+def render_summary(summary, vacs, L=None):
+    L = L or LABELS["en"]
+    cols = [esc(L[k]) for k in ("col_n", "col_vacancy", "col_verdict", "col_reason", "col_check")]
+    n, vac, ver, reason, check = cols
+    o = [f'<h2>{esc(L["summary"])}</h2><div class="card"><table><thead><tr>'
+         + "".join(f"<th>{c}</th>" for c in cols) + '</tr></thead><tbody>']
     for i, r in enumerate(summary.get("rows", []), 1):
-        mk, lb = VERDICT[r["verdict"]]
-        o.append(f'<tr><td data-l="#">{i}</td><td data-l="Vacancy"><a href="#v{i}">{esc(r.get("vacancy"))}</a></td>'
-                 f'<td data-l="Verdict">{mk} {lb}</td><td data-l="Main reason">{esc(r.get("reason"))}</td>'
-                 f'<td data-l="Check first">{esc(r.get("check"))}</td></tr>')
+        mk, lb = VERDICT[r["verdict"]][0], esc(L["verdict"][r["verdict"]])
+        o.append(f'<tr><td data-l="{n}">{i}</td><td data-l="{vac}"><a href="#v{i}">{free(r.get("vacancy"))}</a></td>'
+                 f'<td data-l="{ver}">{mk} {lb}</td><td data-l="{reason}">{free(r.get("reason"))}</td>'
+                 f'<td data-l="{check}">{free(r.get("check"))}</td></tr>')
     o.append('</tbody></table></div>')
     if summary.get("patterns"):
-        o.append('<h3>Patterns</h3>' + li([esc(x) for x in summary["patterns"]]))
+        o.append(f'<h3>{esc(L["patterns"])}</h3>' + li([free(x) for x in summary["patterns"]]))
     if summary.get("next"):
-        o.append('<h3>Next</h3>' + li([esc(x) for x in summary["next"]]))
+        o.append(f'<h3>{esc(L["next"])}</h3>' + li([free(x) for x in summary["next"]]))
     return "\n".join(o)
 
 
-def render_decide(decide):
-    o = ['<h2>Questions that decide this</h2>']
+def render_decide(decide, L=None):
+    L = L or LABELS["en"]
+    o = [f'<h2>{esc(L["decide"])}</h2>']
     for d in decide:
-        opts = "".join(f'<span class="opt">{esc(x)}</span>' for x in d.get("options", []))
-        o.append(f'<div class="card"><strong>{esc(d.get("question"))}</strong>'
+        opts = "".join(f'<span class="opt">{free(x)}</span>' for x in d.get("options", []))
+        o.append(f'<div class="card"><strong>{free(d.get("question"))}</strong>'
                  f'<div class="opts">{opts}</div>'
-                 + (f'<span class="note">Affects: {esc(d["affects"])}</span>' if d.get("affects") else "") + '</div>')
+                 + (f'<span class="note">{esc(L["affects"])}: {free(d["affects"])}</span>' if d.get("affects") else "")
+                 + '</div>')
     return "\n".join(o)
 
 
 def render(data, bad=()):
+    L = labels(data.get("lang"))
     vacs = data["vacancies"]
-    title = data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else "Job fit report")
-    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">Profile: {esc(data.get("profile_source", "not stated"))}</p>']
+    title = strip_quote_marks(data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else L["report_title"]))
+    profile = data.get("profile_source", L["profile_unknown"])
+    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">{esc(L["profile"])}: {free(profile)}</p>']
     if data.get("summary"):
-        parts.append(render_summary(data["summary"], vacs))
+        parts.append(render_summary(data["summary"], vacs, L))
     for i, v in enumerate(vacs, 1):
-        parts.append(render_vacancy(v, i, set(bad), single=len(vacs) == 1 and not data.get("title")))
+        parts.append(render_vacancy(v, i, set(bad), single=len(vacs) == 1 and not data.get("title"), L=L))
     if data.get("decide"):
-        parts.append(render_decide(data["decide"]))
+        parts.append(render_decide(data["decide"], L))
     if data.get("next_steps"):
-        parts.append("<h2>What next</h2>" + cmd_buttons([(n["label"], n["command"]) for n in data["next_steps"]]))
+        # Not stripped: next steps are phrases to paste, not claims.
+        parts.append(f'<h2>{esc(L["next_steps"])}</h2>'
+                     + cmd_buttons([(n["label"], n["command"]) for n in data["next_steps"]], L))
     body = "\n".join(parts)
-    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    return (f'<!doctype html><html lang="{L["html_lang"]}"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<meta name="generator" content="job-fit">'
             f'<title>{esc(title)}</title><style>{CSS}</style></head><body><main>{body}</main>'
-            f'{THEME_BUTTON}{COPY_JS}</body></html>')
+            f'{theme_button(L)}{copy_js(L)}</body></html>')
 
 
 def to_pdf(html_path, pdf_path):
@@ -342,46 +564,98 @@ def to_pdf(html_path, pdf_path):
 
 
 def main(argv):
-    args = argv[1:]
-    sources, pdf, force = [], None, False
+    try:
+        return build(argv[1:])
+    except InputError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+
+SHORT_FILE = 200  # non-whitespace characters; a real vacancy can be this short, so it is only a warning
+
+
+def check_roles(paths, texts):
+    """One file can't be both documents: the same path or the same text as a CV and as a vacancy is refused.
+
+    This also catches the vacancy passed a second time as --cv, which would let vacancy lines pass as CV evidence.
+    """
+    for cv_path, cv_text in zip(paths["--cv"], texts["--cv"]):
+        for vac_path, vac_text in zip(paths["--vacancy"], texts["--vacancy"]):
+            same_path = os.path.normcase(os.path.abspath(cv_path)) == os.path.normcase(os.path.abspath(vac_path))
+            if same_path or cv_text.strip() == vac_text.strip():
+                raise InputError(f"the same file (or the same text) is given as both the CV and the vacancy: "
+                                 f"{cv_path}, {vac_path} – no page was written")
+
+
+def warn_inputs(paths, texts, what):
+    """A mechanical warning about the inputs: a file so short it may not be the whole text."""
+    for flag, files in paths.items():
+        for path, text in zip(files, texts[flag]):
+            n = len("".join(text.split()))
+            if n < SHORT_FILE:
+                print(f"warning: {what[flag]} file is short ({n} characters without spaces) – "
+                      f"check it is the whole text: {path}")
+
+
+def build(args):
+    return build_cli(args, usage=__doc__, kind="analysis JSON", validate=validate, missing=missing_quotes,
+                     render=render, cv_labels=("evidence", "talking point (CV)"), allow_source=True)
+
+
+def build_cli(args, *, usage, kind, validate, missing, render, cv_labels, allow_source):
+    """The command line shared by build_report.py and build_prep.py: read, validate, check quotes, write."""
+    paths = {"--source": [], "--cv": [], "--vacancy": []}
+    pdf, force = None, False
     pos = []
     i = 0
     while i < len(args):
         a = args[i]
-        if a == "--source":
-            sources.append(args[i + 1]); i += 2
+        if a == "--source" and not allow_source:
+            raise InputError("--source is not supported here; give the CV with --cv and the vacancy with --vacancy")
+        if a in paths:
+            paths[a].append(flag_value(args, i)); i += 2
         elif a == "--pdf":
-            pdf = args[i + 1]; i += 2
+            pdf = flag_value(args, i); i += 2
         elif a == "--force":
             force = True; i += 1
         else:
             pos.append(a); i += 1
     if len(pos) != 2:
-        print(__doc__)
+        print(usage)
         return 2
-    with open(pos[0], encoding="utf-8") as f:
-        data = json.load(f)
+    # An unchecked page must never reach the user: both roles are required, --force doesn't change that.
+    if paths["--source"] and (paths["--cv"] or paths["--vacancy"]):
+        raise InputError("--source can't be mixed with --cv / --vacancy; give only --cv and --vacancy")
+    if not paths["--source"] and not (paths["--cv"] and paths["--vacancy"]):
+        absent = " and ".join(f for f in ("--cv", "--vacancy") if not paths[f])
+        raise InputError(f"{absent} missing: both --cv and --vacancy are required, so no page was written")
+    data = read_json(pos[0], kind)
+    if not isinstance(data, dict):
+        raise InputError(f"{kind} must be a JSON object, not a {type(data).__name__}: {pos[0]}")
+    what = {"--source": "source", "--cv": "CV", "--vacancy": "vacancy"}
+    texts = {flag: [read_source(s, what[flag]) for s in files] for flag, files in paths.items()}
+    check_roles(paths, texts)
     errs = validate(data)
     if errs:
         print("INVALID:\n  - " + "\n  - ".join(errs))
         return 1
-    bad = []
-    if sources:
-        texts = []
-        for s in sources:
-            with open(s, encoding="utf-8") as f:
-                texts.append(f.read())
-        bad = missing_quotes(data, texts)
-        if bad:
-            print(f"{len(bad)} quote(s) not found in the sources:")
-            for label, text in bad:
-                print(f'  - {label}: "{text}"')
-            if not force:
-                return 1
-    else:
-        print("warning: no --source given, quotes were NOT checked")
+    warn_lang(data.get("lang", "en"))
+    warn_inputs(paths, texts, what)
+    if paths["--source"]:
+        print("warning: --source does not know which file is the CV; use --cv and --vacancy")
+    bad = missing(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
+    if bad:
+        print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
+        for label, text in bad:
+            doc = "cv" if label in cv_labels else "vacancy"
+            why = (" – blank" if blank(text) else
+                   f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else "")
+            print(f'  - {label}: "{text}"{why}')
+        if not force:
+            return 1
+    page = render(data, bad)  # render first: if it fails, no empty or half-written file is left behind
     with open(pos[1], "w", encoding="utf-8") as f:
-        f.write(render(data, bad))
+        f.write(page)
     print(f"wrote {pos[1]}")
     if pdf:
         print(f"wrote {pdf}" if to_pdf(pos[1], pdf) else "PDF skipped: Playwright is not installed; open the HTML and print to PDF")
@@ -389,4 +663,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    utf8_output()
     sys.exit(main(sys.argv))

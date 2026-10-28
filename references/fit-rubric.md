@@ -10,7 +10,14 @@ Go through these in order. For each one write a plain sentence, not a number.
 - A required certificate or licence that is missing.
 - Something on the user's `avoid` list that is central to the role.
 
-If one is real: verdict is `needs a check first` or `skip`. Stop there.
+If one is real: verdict is `needs a check first` or `skip`. Stop there – the only exception is lower pay the
+user accepted for this vacancy (below).
+
+**Exception: the user accepts lower pay for this vacancy.** Pay below the minimum stays a hard blocker unless the
+user says in chat that they accept it for this vacancy. Then keep the blocker visible in Money and format, mark it
+`confirmed by you`, and ask once (multiple-choice) whether to update the minimum in the profile. The verdict
+follows the rest of the rubric. Without that statement, never give `apply` or `apply with questions` to a vacancy
+paying below the minimum.
 
 ## 2. Requirements vs CV
 

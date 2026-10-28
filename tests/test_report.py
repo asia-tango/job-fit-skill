@@ -99,6 +99,50 @@ def test_summary_and_decide_render():
     assert "Summary" in page and "Questions that decide this" in page and "❌" in page
 
 
+def test_every_language_has_every_label():
+    en = br.LABELS["en"]
+    for lang, labels in br.LABELS.items():
+        assert set(labels) == set(en), lang
+        for group in ("status", "verdict"):
+            assert set(labels[group]) == set(en[group]), (lang, group)
+
+
+def test_prep_labels_are_in_the_shared_label_set():
+    # build_prep.py uses the same LABELS, so test_every_language_has_every_label covers prep too.
+    for key in ("prep_title", "prep_process", "prep_questions", "prep_weak", "prep_brush", "prep_ask",
+                "prep_before", "prep_frame", "group_role", "group_technical", "group_behavioral", "group_motivation"):
+        assert key in br.LABELS["en"] and key in br.LABELS["uk"], key
+
+
+def test_ukrainian_report_labels():
+    data, _ = load("frontend")
+    d = copy.deepcopy(data)
+    d["lang"] = "uk"
+    page = br.render(d)
+    uk = br.LABELS["uk"]
+    assert '<html lang="uk">' in page and uk["requirements"] in page and uk["next_steps"] in page
+    assert f'{uk["profile"]}:' in page and "Profile:" not in page
+    for v in d["vacancies"]:
+        assert uk["verdict"][v["verdict"]["mark"]] in page
+        for r in v.get("requirements", []):
+            assert uk["status"][r["status"]] in page
+
+
+def test_unknown_lang_falls_back_to_english_with_warning(tmp_path):
+    data, srcs = load("frontend")
+    d = copy.deepcopy(data)
+    d["lang"] = "xx"
+    j, out = tmp_path / "a.json", tmp_path / "r.html"
+    j.write_text(json.dumps(d), encoding="utf-8")
+    cv, vac = tmp_path / "cv.txt", tmp_path / "vac.txt"
+    cv.write_text(srcs[0], encoding="utf-8")
+    vac.write_text(srcs[1], encoding="utf-8")
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "build_report.py"), str(j), str(out),
+                        "--cv", str(cv), "--vacancy", str(vac)], capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode == 0 and "warning" in r.stdout and "xx" in r.stdout
+    assert "Requirements vs CV" in out.read_text(encoding="utf-8")
+
+
 def test_cli_fails_on_missing_quote_and_writes_on_good(tmp_path):
     data, srcs = load("frontend")
     d = copy.deepcopy(data)
