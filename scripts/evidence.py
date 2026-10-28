@@ -52,6 +52,28 @@ def found(quote, texts):
     return any(occurs(q, normalize(t)) for t in texts)
 
 
+QUOTE_MARKS = '"“”«»„‘'
+APOSTROPHES = "'ʼ’"
+
+
+def strip_quote_marks(text):
+    """Free text without quote marks, so it never looks like a citation (only checked fields may).
+
+    An apostrophe between two letters or digits stays (з'явилась, зʼявилась, don't, it’s, 1990's);
+    elsewhere it is a single quote mark and goes too. Anything that is not a string is returned unchanged.
+    """
+    if not isinstance(text, str):
+        return text
+    out = []
+    for i, c in enumerate(text):
+        if c in QUOTE_MARKS:
+            continue
+        if c in APOSTROPHES and not (0 < i < len(text) - 1 and text[i - 1].isalnum() and text[i + 1].isalnum()):
+            continue
+        out.append(c)
+    return "".join(out)
+
+
 def blank(value):
     """True for a quote field that is present (not null) but has no text: "", "   ", or not a string."""
     return value is not None and (not isinstance(value, str) or not value.strip())

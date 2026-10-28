@@ -29,7 +29,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evidence import (  # noqa: E402,F401 – normalize and too_short are re-exported
-    MIN_LEN, blank, check_fields, confirmed_error, normalize, too_short)
+    MIN_LEN, blank, check_fields, confirmed_error, normalize, strip_quote_marks, too_short)
 from verify_quotes import InputError, flag_value, read_json, read_text, utf8_output  # noqa: E402
 
 STATUS = {
@@ -310,6 +310,11 @@ def missing_quotes(data, sources=None, cv=None, vacancy=None):
     return check_fields(fields, cv=list(cv or []) + sources, vacancy=list(vacancy or []) + sources)
 
 
+def free(text):
+    """Escape a free-text field for the page, without quote marks: only checked quote fields look like quotes."""
+    return esc(strip_quote_marks(text))
+
+
 def badge(status, L):
     return f'<span class="badge {status}">{STATUS[status][0]} {esc(L["status"][status])}</span>'
 
@@ -320,8 +325,8 @@ def li(items):
 
 def growth_item(g):
     if isinstance(g, dict):
-        return esc(g.get("text")) + f'<span class="tag">{esc(g.get("tag"))}</span>'
-    return esc(g)
+        return free(g.get("text")) + f'<span class="tag">{esc(g.get("tag"))}</span>'
+    return free(g)
 
 
 def render_vacancy(v, idx, bad, single=False, L=None):
@@ -329,12 +334,12 @@ def render_vacancy(v, idx, bad, single=False, L=None):
     o = []
     mark = v["verdict"]["mark"]
     vm, vl = VERDICT[mark][0], esc(L["verdict"][mark])
-    head = "" if single else f'<h2>{esc(v["title"])}</h2>'
+    head = "" if single else f'<h2>{free(v["title"])}</h2>'
     o.append(f'<section id="v{idx}">{head}')
     o.append(f'<div class="card verdict {esc(mark)}"><p class="vlabel">{vm} {vl}</p>'
-             f'<p style="margin:0">{esc(v["verdict"]["text"])}</p></div>')
+             f'<p style="margin:0">{free(v["verdict"]["text"])}</p></div>')
     if v.get("would_change"):
-        o.append(f'<h3>{esc(L["would_change"])}</h3>' + li([esc(x) for x in v["would_change"]]))
+        o.append(f'<h3>{esc(L["would_change"])}</h3>' + li([free(x) for x in v["would_change"]]))
     reqs = v.get("requirements", [])
     if reqs:
         c_req, c_ev, c_st = esc(L["col_requirement"]), esc(L["col_evidence"]), esc(L["col_status"])
@@ -346,8 +351,8 @@ def render_vacancy(v, idx, bad, single=False, L=None):
             ev_cls = ' class="missing"' if ("evidence", ev) in bad else ""
             confirmed = r.get("confirmed") is True
             ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not confirmed else (
-                esc(ev) if ev else '<span class="ev">—</span>')
-            note = f'<span class="note">{esc(r["note"])}</span>' if r.get("note") else ""
+                free(ev) if ev else '<span class="ev">—</span>')
+            note = f'<span class="note">{free(r["note"])}</span>' if r.get("note") else ""
             conf = f'<span class="tag">{esc(L["confirmed"])}</span>' if confirmed else ""
             o.append(f'<tr><td data-l="{c_req}"><q{req_cls}>{esc(r["requirement"])}</q></td>'
                      f'<td data-l="{c_ev}">{ev_html}</td>'
@@ -355,7 +360,7 @@ def render_vacancy(v, idx, bad, single=False, L=None):
         o.append('</tbody></table></div>')
     if v.get("cv_fixes"):
         o.append(f'<h2>{esc(L["cv_fixes"])}</h2><div class="card">' + li(
-            [f'<span class="kind">{esc(f.get("kind"))}.</span> {esc(f.get("text"))}' for f in v["cv_fixes"]]) + '</div>')
+            [f'<span class="kind">{free(f.get("kind"))}.</span> {free(f.get("text"))}' for f in v["cv_fixes"]]) + '</div>')
     g = v.get("growth")
     if g:
         o.append(f'<h2>{esc(L["growth"])}</h2><div class="cols">')
@@ -368,17 +373,17 @@ def render_vacancy(v, idx, bad, single=False, L=None):
         for f in v["red_flags"]:
             cls = ' class="missing"' if ("red flag quote", f.get("quote")) in bad else ""
             o.append(f'<div class="card flag"><q{cls}>{esc(f.get("quote"))}</q>'
-                     f'<span class="note">{esc(f.get("text"))}</span></div>')
+                     f'<span class="note">{free(f.get("text"))}</span></div>')
     if v.get("money"):
-        o.append(f'<h2>{esc(L["money"])}</h2><div class="card">{esc(v["money"])}</div>')
+        o.append(f'<h2>{esc(L["money"])}</h2><div class="card">{free(v["money"])}</div>')
     if v.get("questions"):
         o.append(f'<h2>{esc(L["questions"])}</h2><div class="card">')
         groups = {}
         for q in v["questions"]:
             groups.setdefault(q.get("group", L["questions_general"]), []).append(q)
         for name, qs in groups.items():
-            o.append(f'<h3 style="margin-top:0">{esc(name)}</h3>' + li(
-                [esc(q["question"]) + (f'<span class="note">{esc(q["why"])}</span>' if q.get("why") else "")
+            o.append(f'<h3 style="margin-top:0">{free(name)}</h3>' + li(
+                [free(q["question"]) + (f'<span class="note">{free(q["why"])}</span>' if q.get("why") else "")
                  for q in qs]))
         o.append('</div>')
     if v.get("talking_points"):
@@ -388,13 +393,14 @@ def render_vacancy(v, idx, bad, single=False, L=None):
             src = ""
             if t.get("cv"):
                 src += (f'{tp_cv}: <q>{esc(t["cv"])}</q>' if t.get("confirmed") is not True
-                        else f'{tp_cv}: {esc(t["cv"])} <span class="tag">{esc(L["confirmed"])}</span>')
+                        else f'{tp_cv}: {free(t["cv"])} <span class="tag">{esc(L["confirmed"])}</span>')
             if t.get("vacancy"):
                 src += f'<br>{tp_vac}: <q>{esc(t["vacancy"])}</q>'
-            o.append(f'<li style="margin:10px 0"><strong>{esc(t["point"])}</strong>'
+            o.append(f'<li style="margin:10px 0"><strong>{free(t["point"])}</strong>'
                      f'<span class="note">{src}</span></li>')
         o.append('</ol></div>')
     if v.get("letter_draft"):
+        # Not stripped: the draft is the user's own text to send («Нова Пошта» is correct there).
         o.append(f'<h2>{esc(L["letter"])}</h2><div class="card">'
                  f'<p class="note" style="margin-top:0">{esc(L["letter_note"])}</p>'
                  f'<div style="white-space:pre-wrap;line-height:1.55">{esc(v["letter_draft"])}</div>'
@@ -411,14 +417,14 @@ def render_summary(summary, vacs, L=None):
          + "".join(f"<th>{c}</th>" for c in cols) + '</tr></thead><tbody>']
     for i, r in enumerate(summary.get("rows", []), 1):
         mk, lb = VERDICT[r["verdict"]][0], esc(L["verdict"][r["verdict"]])
-        o.append(f'<tr><td data-l="{n}">{i}</td><td data-l="{vac}"><a href="#v{i}">{esc(r.get("vacancy"))}</a></td>'
-                 f'<td data-l="{ver}">{mk} {lb}</td><td data-l="{reason}">{esc(r.get("reason"))}</td>'
-                 f'<td data-l="{check}">{esc(r.get("check"))}</td></tr>')
+        o.append(f'<tr><td data-l="{n}">{i}</td><td data-l="{vac}"><a href="#v{i}">{free(r.get("vacancy"))}</a></td>'
+                 f'<td data-l="{ver}">{mk} {lb}</td><td data-l="{reason}">{free(r.get("reason"))}</td>'
+                 f'<td data-l="{check}">{free(r.get("check"))}</td></tr>')
     o.append('</tbody></table></div>')
     if summary.get("patterns"):
-        o.append(f'<h3>{esc(L["patterns"])}</h3>' + li([esc(x) for x in summary["patterns"]]))
+        o.append(f'<h3>{esc(L["patterns"])}</h3>' + li([free(x) for x in summary["patterns"]]))
     if summary.get("next"):
-        o.append(f'<h3>{esc(L["next"])}</h3>' + li([esc(x) for x in summary["next"]]))
+        o.append(f'<h3>{esc(L["next"])}</h3>' + li([free(x) for x in summary["next"]]))
     return "\n".join(o)
 
 
@@ -426,10 +432,10 @@ def render_decide(decide, L=None):
     L = L or LABELS["en"]
     o = [f'<h2>{esc(L["decide"])}</h2>']
     for d in decide:
-        opts = "".join(f'<span class="opt">{esc(x)}</span>' for x in d.get("options", []))
-        o.append(f'<div class="card"><strong>{esc(d.get("question"))}</strong>'
+        opts = "".join(f'<span class="opt">{free(x)}</span>' for x in d.get("options", []))
+        o.append(f'<div class="card"><strong>{free(d.get("question"))}</strong>'
                  f'<div class="opts">{opts}</div>'
-                 + (f'<span class="note">{esc(L["affects"])}: {esc(d["affects"])}</span>' if d.get("affects") else "")
+                 + (f'<span class="note">{esc(L["affects"])}: {free(d["affects"])}</span>' if d.get("affects") else "")
                  + '</div>')
     return "\n".join(o)
 
@@ -437,9 +443,9 @@ def render_decide(decide, L=None):
 def render(data, bad=()):
     L = labels(data.get("lang"))
     vacs = data["vacancies"]
-    title = data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else L["report_title"])
+    title = strip_quote_marks(data.get("title") or (vacs[0]["title"] if len(vacs) == 1 else L["report_title"]))
     profile = data.get("profile_source", L["profile_unknown"])
-    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">{esc(L["profile"])}: {esc(profile)}</p>']
+    parts = [f'<h1>{esc(title)}</h1>', f'<p class="src">{esc(L["profile"])}: {free(profile)}</p>']
     if data.get("summary"):
         parts.append(render_summary(data["summary"], vacs, L))
     for i, v in enumerate(vacs, 1):
@@ -447,6 +453,7 @@ def render(data, bad=()):
     if data.get("decide"):
         parts.append(render_decide(data["decide"], L))
     if data.get("next_steps"):
+        # Not stripped: next steps are phrases to paste, not claims.
         parts.append(f'<h2>{esc(L["next_steps"])}</h2>'
                      + cmd_buttons([(n["label"], n["command"]) for n in data["next_steps"]], L))
     body = "\n".join(parts)

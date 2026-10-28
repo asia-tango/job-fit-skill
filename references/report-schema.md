@@ -47,6 +47,12 @@ Write the JSON directly; do not write the analysis twice (once in chat, once in 
   `evidence` and talking-point `cv` from the CV (`--cv`); `requirement`, red-flag `quote` and talking-point `vacancy`
   from the vacancy (`--vacancy`). The script refuses to render if a quote is not in its document, so a vacancy line
   pasted as CV evidence fails.
+- Everything else is free text (verdict text, notes, money, CV fixes, growth, questions, points, summary,
+  decide). It is shown without quote marks (`"` `“` `”` `«` `»` `„` `‘`, and `'` `ʼ` `’` except as an
+  apostrophe between two letters or digits, as in `don't`, `з'явилась`, `1990's`), so free text never looks like a
+  citation: only the quote fields above, which are checked, appear as quotes. The JSON is not changed and this
+  is not an error. Two exceptions keep their quote marks, on the page and in what the copy button copies:
+  `letter_draft` (the user's own text to send) and `next_steps` (phrases to paste, not claims).
 - `confirmed: true` means the user confirmed it in chat. Then `evidence` / `cv` is free text, is shown with a
   `confirmed by you` tag, and is not quote-checked. A `match` must still have evidence.
 - `lang` sets the page's own words (headings, status and verdict labels, "Profile:"): `en` or `uk`. Your text
