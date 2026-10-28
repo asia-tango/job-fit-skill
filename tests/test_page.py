@@ -53,11 +53,11 @@ def test_page_without_quotes_builds_with_sources(tmp_path):
         out = tmp_path / f"{name}.html"
         r = subprocess.run([sys.executable, script, md, str(out),
                             "--source", os.path.join(d, "cv.md"), "--source", os.path.join(d, "vacancy.txt")],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8")
         assert r.returncode == 0 and out.exists(), (name, r.stdout)
     out = tmp_path / "menu-cards.html"
     r = subprocess.run([sys.executable, script, os.path.join(ROOT, "references", "menu.md"), str(out), "--cards"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 0 and out.exists() and "warning" not in r.stdout
 
 

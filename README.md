@@ -1,5 +1,7 @@
 # job-fit
 
+[![tests](https://github.com/asia-tango/job-fit-skill/actions/workflows/tests.yml/badge.svg)](https://github.com/asia-tango/job-fit-skill/actions/workflows/tests.yml)
+
 A Claude skill that reads your CV and a job vacancy, and tells you honestly if it fits, whether there is growth, what to fix in the CV, what to ask, and what to say in the application. Built for any role, not only engineers.
 
 ![Example report: a fictional frontend CV against a UK vacancy](docs/example-report.png)
@@ -126,6 +128,15 @@ docs/                         the example report shown above
 - **It can't check where a salary came from.** Job boards sometimes estimate salaries, and those aren't from the company. The skill is told to say which is which.
 - **No large evaluation yet.** The model's behavior is checked by hand.
 
+## Recorded runs
+
+Real runs checked by hand with the checklist in [`tests/MANUAL_EVAL.md`](tests/MANUAL_EVAL.md) (the same table is kept there).
+
+| Date | CV / vacancy | Pass (1–9) | What was off |
+|---|---|---|---|
+| 2026-10-27 | Real CV / a Ukrainian vacancy | not scored | Verdict "apply with questions" although the pay was 3–4x below the user's minimum: that broke the rubric (pay below the minimum is a hard blocker) and led to the "user accepts lower pay" rule in `fit-rubric.md`. Guard bypasses found (fixed in Steps 1–5): a vacancy line accepted as CV evidence; trivially short evidence ("the"); «…», „…“ and wrapped quotes not checked, an answer with no quotes passing; prep pages not quote-checked; English headings on a Ukrainian analysis. |
+| 2026-10-28 | Review round of the fix branch (no new run) | – | Bypasses found by an independent review (fixed in Steps 6–8): nested and unpaired quote marks; `confirmed: "false"` and blank quote fields; quotes cut mid-word or joined across files; quote marks in free text looking like citations; prep evidence in free text; a report built without `--cv` / `--vacancy`, or with `--source` mixed in; empty input files; AI instructions in a vacancy. |
+
 ## Exit codes
 
 | Code | build_report.py / build_prep.py | build_page.py | verify_quotes.py |
@@ -139,7 +150,11 @@ docs/                         the example report shown above
 
 ## Privacy
 
-Your CV, `references/profile.local.md` and `references/keywords.local.json` are in `.gitignore`. Don't commit them.
+Your CV, `references/profile.local.md` and `references/keywords.local.json` are in `.gitignore`, and so are files named like a CV or resume (`cv.*`, `*resume*`, `.docx`, `.pdf`) and generated pages and their JSON (`report*.html`, `analysis*.json`, `prep*.html`, `prep*.json`), which quote your CV. Only the fictional `examples/` are committed. Don't commit your own.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE).
 
 ## Why I built it this way
 

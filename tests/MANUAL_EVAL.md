@@ -23,7 +23,7 @@ one real CV and vacancy of your own. Save each answer to a file.
 | 2026-10-27 | Real CV / a Ukrainian vacancy | not scored | Verdict "apply with questions" although the pay was 3–4x below the user's minimum: that broke the rubric (pay below the minimum is a hard blocker) and led to the "user accepts lower pay" rule in `fit-rubric.md`. Guard bypasses found (fixed in Steps 1–5): a vacancy line accepted as CV evidence; trivially short evidence ("the"); «…», „…“ and wrapped quotes not checked, an answer with no quotes passing; prep pages not quote-checked; English headings on a Ukrainian analysis. |
 | 2026-10-28 | Review round of the fix branch (no new run) | – | Bypasses found by an independent review (fixed in Steps 6–8): nested and unpaired quote marks; `confirmed: "false"` and blank quote fields; quotes cut mid-word or joined across files; quote marks in free text looking like citations; prep evidence in free text; a report built without `--cv` / `--vacancy`, or with `--source` mixed in; empty input files; AI instructions in a vacancy. |
 
-Put the table in the README only when it has real rows. Don't claim "tested on N examples" without them.
+The README ("Recorded runs") shows the same table; keep them in sync (a test checks it). Don't claim "tested on N examples" without rows here.
 
 ## Cases worth trying
 

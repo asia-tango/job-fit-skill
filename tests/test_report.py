@@ -138,7 +138,7 @@ def test_unknown_lang_falls_back_to_english_with_warning(tmp_path):
     cv.write_text(srcs[0], encoding="utf-8")
     vac.write_text(srcs[1], encoding="utf-8")
     r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "build_report.py"), str(j), str(out),
-                        "--cv", str(cv), "--vacancy", str(vac)], capture_output=True, text=True)
+                        "--cv", str(cv), "--vacancy", str(vac)], capture_output=True, text=True, encoding="utf-8")
     assert r.returncode == 0 and "warning" in r.stdout and "xx" in r.stdout
     assert "Requirements vs CV" in out.read_text(encoding="utf-8")
 
