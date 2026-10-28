@@ -77,6 +77,9 @@ Do not rely on the skill folder alone. At the end of Setup:
 3. Always also give the whole profile as `profile.md` (a file, or one block of text), render it as a page with `scripts/build_page.py` for reading, and tell the user, in two lines:
    keep it as `profile.md`, and attach it (or put it in a Project's files together with the CV) so the next chat doesn't repeat Setup.
 4. The profile is private. Never commit it, never put it in a public repo.
+5. `[[cmd: …]]` copy buttons go only into the rendered page (the Markdown given to `build_page.py`),
+   never into `profile.md`: that file is plain data the user attaches next time. `examples/profile.example.md` is
+   such a page source, which is why it has a button; it is not a `profile.md`.
 
 At the start of any later session, look for the profile in this order: the skill folder, a file or block the user
 attached or pasted, the conversation. If none is found, ask one multiple-choice question

@@ -73,10 +73,11 @@ Don't type the menu out in chat. Fixed text, no model work.
 7. Questions to ask: `references/questions-bank.md`, only what the vacancy did not answer, plus 2–3 specific ones.
 8. Talking points: `references/letter-theses.md`.
 9. If company facts matter (funding, layoffs, product), search the web and give sources.
-10. Verify: save the answer to a file and run
-    `python scripts/verify_quotes.py <answer.md> <cv.txt> <vacancy.txt>`.
-    Every quoted line must exist in the CV or the vacancy. Fix or remove any quote that fails. Do not show an answer that failed.
-    Exit 3 means no quotes were found, so nothing was checked: an analysis without quoted evidence is not ready.
+10. Verify: the quotes are checked when the page is built (`build_report.py` with `--cv` / `--vacancy`, Output
+    delivery step 2; `build_prep.py` for prep). Fix or remove any quote that fails. Do not show an answer that failed.
+    Only if the scripts can't render a page and the answer goes in chat: save it to a file and run
+    `python scripts/verify_quotes.py <answer.md> <cv.txt> <vacancy.txt>`. Every quoted line must exist in the CV or
+    the vacancy. Exit 3 means no quotes were found, so nothing was checked: an analysis without quoted evidence is not ready.
 
 ## Output format
 
@@ -162,4 +163,4 @@ If the honest answer is "skip", say skip.
 
 ## Examples
 
-`examples/` has four fictional role families (frontend, backend, project manager, designer), each with a CV, a vacancy and the expected output. All expected outputs pass `verify_quotes.py`. See `tests/MANUAL_EVAL.md` to check the skill's real behavior.
+`examples/` has four fictional role families (frontend, backend, project manager, designer), each with a CV, a vacancy, a report JSON and the expected output; `frontend` also has `prep.json`. Every report and the prep build with `--cv` / `--vacancy`, and every expected output passes `verify_quotes.py`. See `tests/MANUAL_EVAL.md` to check the skill's real behavior.

@@ -11,7 +11,8 @@ Usage:
 --source  a document the page's quotes must come from (CV, vacancy). Repeat it. Every quote (see
           verify_quotes.py) must be in one of them, or no page is written. A page with no quotes builds.
           Without any --source the quotes are NOT checked and a warning is printed.
---force   write the page even if some quotes were not found.
+--force   write the page even if some quotes were not found (exit 0). Unlike build_report.py, this
+          script does not mark the missing quotes on the page yet.
 
 Supported Markdown: # ## ### headings, paragraphs, - and 1. lists, > quotes, tables, ---, **bold**, *italic*,
 `code`, [text](https://link), and copy buttons: a line `[[cmd: Label | text to copy]]`

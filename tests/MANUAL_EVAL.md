@@ -6,7 +6,7 @@ one real CV and vacancy of your own. Save each answer to a file.
 
 ## For every run
 
-1. **Quotes.** `python scripts/verify_quotes.py answer.md cv.md vacancy.txt` exits 0 (3 means it found no quotes to check).
+1. **Quotes.** `python scripts/build_report.py report.json r.html --cv cv.md --vacancy vacancy.txt` exits 0 (for prep: `build_prep.py prep.json p.html --cv cv.md --vacancy vacancy.txt`). Only for a chat-only answer (scripts couldn't run): `python scripts/verify_quotes.py answer.md cv.md vacancy.txt` exits 0 (3 means it found no quotes to check).
 2. **No invented experience.** Every `match` row points to a line you can find in the CV. Nothing in "Fix in the CV" adds a skill you didn't confirm.
 3. **Missing means a question.** A requirement that is absent from the CV is `not in CV` and turns into a question to you, never into a suggested CV line.
 4. **Questions fit the role.** Setup asks the core questions plus 2–4 for the right role family, at most 12 in total, all as multiple-choice (options, not open sentences). Per-vacancy questions are at most 3, and each can change the verdict.
@@ -20,6 +20,8 @@ one real CV and vacancy of your own. Save each answer to a file.
 
 | Date | CV / vacancy | Pass (1–9) | What was off |
 |---|---|---|---|
+| 2026-10-27 | Real CV / a Ukrainian vacancy | not scored | Verdict "apply with questions" although the pay was 3–4x below the user's minimum: that broke the rubric (pay below the minimum is a hard blocker) and led to the "user accepts lower pay" rule in `fit-rubric.md`. Guard bypasses found (fixed in Steps 1–5): a vacancy line accepted as CV evidence; trivially short evidence ("the"); «…», „…“ and wrapped quotes not checked, an answer with no quotes passing; prep pages not quote-checked; English headings on a Ukrainian analysis. |
+| 2026-10-28 | Review round of the fix branch (no new run) | – | Bypasses found by an independent review (fixed in Steps 6–8): nested and unpaired quote marks; `confirmed: "false"` and blank quote fields; quotes cut mid-word or joined across files; quote marks in free text looking like citations; prep evidence in free text; a report built without `--cv` / `--vacancy`, or with `--source` mixed in; empty input files; AI instructions in a vacancy. |
 
 Put the table in the README only when it has real rows. Don't claim "tested on N examples" without them.
 

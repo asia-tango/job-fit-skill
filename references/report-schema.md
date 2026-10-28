@@ -55,6 +55,10 @@ Write the JSON directly; do not write the analysis twice (once in chat, once in 
   `letter_draft` (the user's own text to send) and `next_steps` (phrases to paste, not claims).
 - `confirmed: true` means the user confirmed it in chat. Then `evidence` / `cv` is free text, is shown with a
   `confirmed by you` tag, and is not quote-checked. A `match` must still have evidence.
+  `confirmed` is a boolean (`true` / `false`); a string like `"false"` is an error, not a skip.
+- Inputs: both `--cv` and `--vacancy` are required, or no page is written. An empty file (only whitespace, e.g. a
+  scanned PDF) is refused with exit 2. A file under 200 characters without spaces, or the same file (or the same
+  text) given as `--cv` and `--vacancy`, only prints a warning: check you passed the right files.
 - `lang` sets the page's own words (headings, status and verdict labels, "Profile:"): `en` or `uk`. Your text
   fields are written in that language too; quotes stay in the original. An unknown `lang` falls back to English.
 - `status` is ✅ `match`, ⚠️ `partial`, ❓ `unknown` (not in the CV, ask), ❌ `gap`. Marks are added by the script.

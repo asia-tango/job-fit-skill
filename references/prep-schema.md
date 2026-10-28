@@ -43,4 +43,7 @@ styled page, the same look as the report:
 - Everything else is free text and is shown without quote marks, so it never looks like a citation (same
   rule as `report-schema.md`). `next_steps` keep their quote marks: they are phrases to paste, not claims.
 - A quote field that is present (not null) must be non-blank text.
+- Inputs: both `--cv` and `--vacancy` are required, or no page is written (there is no `--source`). An empty file
+  (only whitespace, e.g. a scanned PDF) is refused with exit 2. A file under 200 characters without spaces, or the
+  same file (or the same text) given as `--cv` and `--vacancy`, only prints a warning.
 - `next_steps` render as copy buttons under "What next". Include two or three.
