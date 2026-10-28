@@ -68,7 +68,7 @@ def term_pattern(term):
 
 
 def load_keywords(path):
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8-sig") as f:  # a file saved by Windows Notepad starts with a BOM
         data = json.load(f)
     return {
         "stack": [t for t in data.get("stack", []) if t and t.strip()],
@@ -130,4 +130,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    # Print UTF-8 even when the output is a pipe or a file (Windows would use the locale codepage).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     sys.exit(main(sys.argv))

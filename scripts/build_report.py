@@ -17,17 +17,19 @@ Usage:
 --pdf      also write a PDF (needs Playwright with Chromium). Otherwise open the HTML
            and print it to PDF; the print styles are included.
 --force    write the page even if some quotes were not found (they are marked on the page).
-Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk".
-An unknown lang prints a warning and uses English.
-Exit code: 0 ok, 1 invalid input or quotes not found, 2 usage.
+Labels (headings, statuses, verdicts) follow "lang" in the JSON: "en" (default) or "uk"
+(case-insensitive, "uk-UA" and "ua" work too). An unknown lang prints a warning and uses English.
+`confirmed` must be true or false; a quote field that is present (not null) must be non-blank text.
+Exit code: 0 ok, 1 invalid analysis or quotes not found, 2 usage or input error (a flag without
+a value, a missing or non-UTF-8 file, malformed JSON).
 """
 import html
-import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_quotes import MIN_LEN, normalize  # noqa: E402
+from verify_quotes import (  # noqa: E402
+    MIN_LEN, InputError, flag_value, normalize, read_json, read_text, utf8_output)
 
 STATUS = {
     "match": ("✅", "Match"),
@@ -97,13 +99,24 @@ LABELS = {
 }
 
 
+LANG_ALIASES = {"ua": "uk"}
+
+
+def lang_key(lang):
+    """`UK`, ` uk-UA `, `ua` -> "uk": case-insensitive, the part before "-", plus aliases."""
+    if not isinstance(lang, str):
+        return None
+    key = lang.strip().lower().split("-")[0]
+    return LANG_ALIASES.get(key, key)
+
+
 def labels(lang):
     """The label dict for `lang`; English for a missing or unknown language (the CLI warns about it)."""
-    return LABELS.get(lang, LABELS["en"]) if isinstance(lang, str) else LABELS["en"]
+    return LABELS.get(lang_key(lang), LABELS["en"])
 
 
 def warn_lang(lang):
-    if not (isinstance(lang, str) and lang in LABELS):
+    if lang_key(lang) not in LABELS:
         print(f"warning: unknown lang {lang!r}, using English labels (built in: {', '.join(LABELS)})")
 
 CSS = """
@@ -212,8 +225,24 @@ def cmd_buttons(items, L=None):
         f'<code>{esc(c)}</code><span class="cp">{copy_}</span></button>' for l, c in items) + "</div>"
 
 
+def blank(value):
+    """True for a quote field that is present (not null) but has no text: "", "   ", or not a string."""
+    return value is not None and (not isinstance(value, str) or not value.strip())
+
+
+def check_item(errs, where, item, quote_keys):
+    """Blank quote fields and a non-boolean `confirmed` in one requirement, red flag or talking point."""
+    for key in quote_keys:
+        if blank(item.get(key)):
+            errs.append(f"{where}: `{key}` must be non-blank text")
+    if item.get("confirmed") is not None and not isinstance(item["confirmed"], bool):
+        errs.append(f"{where}: `confirmed` must be true or false, not {item['confirmed']!r}")
+
+
 def validate(data):
     """Return a list of problems with the analysis JSON. Empty list = valid."""
+    if not isinstance(data, dict):
+        return ["the analysis must be a JSON object with `vacancies`"]
     errs = []
     vacs = data.get("vacancies")
     if not isinstance(vacs, list) or not vacs:
@@ -230,10 +259,15 @@ def validate(data):
         for j, r in enumerate(v.get("requirements", []), 1):
             if r.get("status") not in STATUS:
                 errs.append(f"{p}, requirement {j}: status must be one of {sorted(STATUS)}")
-            if not r.get("requirement"):
+            check_item(errs, f"{p}, requirement {j}", r, ("requirement", "evidence"))
+            if r.get("requirement") is None:
                 errs.append(f"{p}, requirement {j}: empty requirement")
-            if r.get("status") == "match" and not r.get("evidence"):
+            if r.get("status") == "match" and (r.get("evidence") is None or blank(r.get("evidence"))):
                 errs.append(f"{p}, requirement {j}: a match needs evidence")
+        for k, f in enumerate(v.get("red_flags", []), 1):
+            check_item(errs, f"{p}, red flag {k}", f, ("quote",))
+        for k, t in enumerate(v.get("talking_points", []), 1):
+            check_item(errs, f"{p}, talking point {k}", t, ("cv", "vacancy"))
         if "letter_draft" in v and not isinstance(v["letter_draft"], str):
             errs.append(f"{p}: `letter_draft` must be a string")
         for part in ("new", "same", "unknown"):
@@ -254,14 +288,15 @@ def quote_fields(v):
 
     `doc` is the document the quote must come from: "cv" or "vacancy".
     """
+    # Only a real `true` skips the check: "false" (a string) is truthy in Python.
     for r in v.get("requirements", []):
         yield "requirement", r.get("requirement"), "vacancy"
-        if not r.get("confirmed"):
+        if r.get("confirmed") is not True:
             yield "evidence", r.get("evidence"), "cv"
     for f in v.get("red_flags", []):
         yield "red flag quote", f.get("quote"), "vacancy"
     for t in v.get("talking_points", []):
-        if not t.get("confirmed"):
+        if t.get("confirmed") is not True:
             yield "talking point (CV)", t.get("cv"), "cv"
         yield "talking point (vacancy)", t.get("vacancy"), "vacancy"
 
@@ -285,9 +320,9 @@ def missing_quotes(data, sources=None, cv=None, vacancy=None):
     out = []
     for v in data.get("vacancies", []):
         for label, text, doc in quote_fields(v):
-            if not text:
+            if text is None:
                 continue
-            if too_short(text, doc) or (hay[doc] is not None and normalize(text) not in hay[doc]):
+            if blank(text) or too_short(text, doc) or (hay[doc] is not None and normalize(text) not in hay[doc]):
                 out.append((label, text))
     return out
 
@@ -326,10 +361,11 @@ def render_vacancy(v, idx, bad, single=False, L=None):
             req_cls = ' class="missing"' if ("requirement", r.get("requirement")) in bad else ""
             ev = r.get("evidence")
             ev_cls = ' class="missing"' if ("evidence", ev) in bad else ""
-            ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not r.get("confirmed") else (
+            confirmed = r.get("confirmed") is True
+            ev_html = f'<q class="ev"{ev_cls}>{esc(ev)}</q>' if ev and not confirmed else (
                 esc(ev) if ev else '<span class="ev">—</span>')
             note = f'<span class="note">{esc(r["note"])}</span>' if r.get("note") else ""
-            conf = f'<span class="tag">{esc(L["confirmed"])}</span>' if r.get("confirmed") else ""
+            conf = f'<span class="tag">{esc(L["confirmed"])}</span>' if confirmed else ""
             o.append(f'<tr><td data-l="{c_req}"><q{req_cls}>{esc(r["requirement"])}</q></td>'
                      f'<td data-l="{c_ev}">{ev_html}</td>'
                      f'<td data-l="{c_st}">{badge(r["status"], L)}{conf}{note}</td></tr>')
@@ -368,7 +404,7 @@ def render_vacancy(v, idx, bad, single=False, L=None):
         for t in v["talking_points"]:
             src = ""
             if t.get("cv"):
-                src += (f'{tp_cv}: <q>{esc(t["cv"])}</q>' if not t.get("confirmed")
+                src += (f'{tp_cv}: <q>{esc(t["cv"])}</q>' if t.get("confirmed") is not True
                         else f'{tp_cv}: {esc(t["cv"])} <span class="tag">{esc(L["confirmed"])}</span>')
             if t.get("vacancy"):
                 src += f'<br>{tp_vac}: <q>{esc(t["vacancy"])}</q>'
@@ -453,7 +489,14 @@ def to_pdf(html_path, pdf_path):
 
 
 def main(argv):
-    args = argv[1:]
+    try:
+        return build(argv[1:])
+    except InputError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+
+def build(args):
     paths = {"--source": [], "--cv": [], "--vacancy": []}
     pdf, force = None, False
     pos = []
@@ -461,9 +504,9 @@ def main(argv):
     while i < len(args):
         a = args[i]
         if a in paths:
-            paths[a].append(args[i + 1]); i += 2
+            paths[a].append(flag_value(args, i)); i += 2
         elif a == "--pdf":
-            pdf = args[i + 1]; i += 2
+            pdf = flag_value(args, i); i += 2
         elif a == "--force":
             force = True; i += 1
         else:
@@ -471,8 +514,11 @@ def main(argv):
     if len(pos) != 2:
         print(__doc__)
         return 2
-    with open(pos[0], encoding="utf-8") as f:
-        data = json.load(f)
+    data = read_json(pos[0], "analysis JSON")
+    if not isinstance(data, dict):
+        raise InputError(f"analysis JSON must be an object with `vacancies`, not a {type(data).__name__}: {pos[0]}")
+    what = {"--source": "source", "--cv": "CV", "--vacancy": "vacancy"}
+    texts = {flag: [read_text(s, what[flag]) for s in files] for flag, files in paths.items()}
     errs = validate(data)
     if errs:
         print("INVALID:\n  - " + "\n  - ".join(errs))
@@ -486,18 +532,13 @@ def main(argv):
             print("warning: no --cv given, CV quotes were NOT checked")
         elif not paths["--vacancy"]:
             print("warning: no --vacancy given, vacancy quotes were NOT checked")
-        texts = {}
-        for flag, files in paths.items():
-            texts[flag] = []
-            for s in files:
-                with open(s, encoding="utf-8") as f:
-                    texts[flag].append(f.read())
         bad = missing_quotes(data, texts["--source"], cv=texts["--cv"], vacancy=texts["--vacancy"])
         if bad:
             print(f"{len(bad)} quote problem(s) (CV quotes must be in the CV, vacancy quotes in the vacancy):")
             for label, text in bad:
                 doc = "cv" if label in ("evidence", "talking point (CV)") else "vacancy"
-                why = f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else ""
+                why = (" – blank" if blank(text) else
+                       f" – too short to be evidence (under {MIN_LEN} characters)" if too_short(text, doc) else "")
                 print(f'  - {label}: "{text}"{why}')
             if not force:
                 return 1
@@ -512,4 +553,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    utf8_output()
     sys.exit(main(sys.argv))

@@ -4,7 +4,8 @@
 Usage:
   python build_page.py input.md output.html [--title "Title"] [--cards] [--source doc.txt ...] [--force]
                        [--lang uk]
---lang    language of the page's fixed strings (theme switch, copy buttons): en (default) or uk.
+--lang    language of the page's fixed strings (theme switch, copy buttons): en (default) or uk
+          (case-insensitive, uk-UA and ua work too).
 --cards   menu layout (hero banner, sections as cards in two columns). The menu quotes nothing, so it
           needs no --source.
 --source  a document the page's quotes must come from (CV, vacancy). Repeat it. Every quote (see
@@ -16,7 +17,8 @@ Supported Markdown: # ## ### headings, paragraphs, - and 1. lists, > quotes, tab
 `code`, [text](https://link), and copy buttons: a line `[[cmd: Label | text to copy]]`
 (consecutive lines form one group). Everything is HTML-escaped first; only http(s) links are kept.
 The first `# Heading` becomes the page title. The look matches build_report.py (light default, dark toggle, print).
-Exit code: 0 ok, 1 quotes not found, 2 usage.
+Exit code: 0 ok, 1 quotes not found or a quote mark unpaired, 2 usage or input error
+(a flag without a value, a missing or non-UTF-8 file).
 """
 import os
 import re
@@ -24,7 +26,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_report import CSS, esc, cmd_buttons, copy_js, labels, theme_button, warn_lang  # noqa: E402
-from verify_quotes import missing_quotes  # noqa: E402
+from verify_quotes import (  # noqa: E402
+    InputError, flag_value, missing_quotes, read_text, unpaired_marks, utf8_output)
 
 EXTRA_CSS = """
 .page p{margin:8px 0}.page blockquote{margin:10px 0;padding:6px 14px;border-left:4px solid var(--mint);color:var(--muted)}
@@ -151,7 +154,15 @@ def render(md, title=None, cards=False, lang="en"):
 
 
 def main(argv):
-    args, title, pos, i, cards = argv[1:], None, [], 0, False
+    try:
+        return build(argv[1:])
+    except InputError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+
+def build(args):
+    title, pos, i, cards = None, [], 0, False
     sources, force, lang = [], False, "en"
     while i < len(args):
         if args[i] == "--cards":
@@ -161,13 +172,13 @@ def main(argv):
             force = True
             i += 1
         elif args[i] == "--title":
-            title = args[i + 1]
+            title = flag_value(args, i)
             i += 2
         elif args[i] == "--source":
-            sources.append(args[i + 1])
+            sources.append(flag_value(args, i))
             i += 2
         elif args[i] == "--lang":
-            lang = args[i + 1]
+            lang = flag_value(args, i)
             i += 2
         else:
             pos.append(args[i])
@@ -175,19 +186,16 @@ def main(argv):
     if len(pos) != 2:
         print(__doc__)
         return 2
-    with open(pos[0], encoding="utf-8") as f:
-        md = f.read()
+    md = read_text(pos[0], "page text")
+    texts = [read_text(s, "source") for s in sources]
     warn_lang(lang)
     if sources:
-        texts = []
-        for s in sources:
-            with open(s, encoding="utf-8") as f:
-                texts.append(f.read())
         missing = missing_quotes(md, texts)
         if missing:
-            print(f"{len(missing)} quote(s) not found in the sources:")
+            marks = set(unpaired_marks(md))
+            print(f"{len(missing)} quote problem(s): not found in the sources, or an unpaired quote mark:")
             for q in missing:
-                print(f'  - "{q}"')
+                print(f"  - {q}" if q in marks else f'  - "{q}"')
             if not force:
                 return 1
     elif not cards:
@@ -199,4 +207,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    utf8_output()
     sys.exit(main(sys.argv))
